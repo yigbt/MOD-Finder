@@ -3,12 +3,12 @@ query_ctd_by_id <- function( input_id){
   
   ## check if the RData file is present
   ## if not download and preprocess the file
-  if( !file.exists( "CTD_chemicals.RData")){
+  if( !file.exists( "data/CTD_chemicals.RData")){
     prepare_CTD_database_file()
   }
   
   ## load the CTD file
-  load( file="CTD_chemicals.RData")
+  load( file="data/CTD_chemicals.RData")
   
   ## search for the compound ID in the 2nd column
   chem <- ctd[ which( ctd$Chemical.ID == paste0( "MESH:", input_id)), ]
@@ -182,15 +182,15 @@ get_compound_information <- function( cid){
 prepare_CTD_database_file <- function(){
   
   download_ctd_chem()
-  if( !file.exists( "CTD_chemicals.tsv.gz")){
+  if( !file.exists( "data/CTD_chemicals.tsv.gz")){
     
     cat( "ERROR: Could not download CTD_Chemicals file!\n")
     return( NULL)  
   }
   
-  ctd <- read.csv( "CTD_chemicals.tsv.gz", header = FALSE, sep = "\t", comment.char = "#", stringsAsFactors = FALSE )
+  ctd <- read.csv( "data/CTD_chemicals.tsv.gz", header = FALSE, sep = "\t", comment.char = "#", stringsAsFactors = FALSE )
   colnames( ctd) <- c( "Chemical.Name", "Chemical.ID", "CasRN", "Definition", "ParentIDs", "TreeNumbers", "ParentTreeNumbers", "Synonyms", "DrugBankIDs")
   
-  save( ctd, file="CTD_chemicals.RData")
+  save( ctd, file="data/CTD_chemicals.RData")
   
 }
