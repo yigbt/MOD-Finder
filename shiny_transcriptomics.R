@@ -13,7 +13,7 @@ get_transcriptome_by_name <- function( compound){
   
   
   
-  con <- dbConnect( SQLite(), "GEOmetadb.sqlite")
+  con <- dbConnect( SQLite(), "data/GEOmetadb.sqlite")
   
   ## get all datasets with a title that contains the compound
   gse <- dbGetQuery( con, paste0("SELECT gse.title, gse.gse, gse.pubmed_id, gse.type, COUNT ( gse_gsm.gsm) as '#samples', COUNT( DISTINCT gse_gpl.gpl) as '#platforms', gpl.organism FROM gse JOIN gse_gsm on gse.gse=gse_gsm.gse JOIN gse_gpl on gse.gse=gse_gpl.gse JOIN gpl on gse_gpl.gpl=gpl.gpl WHERE gse.title LIKE '%", compound, "%' GROUP BY gse.gse"))
