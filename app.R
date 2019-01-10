@@ -27,7 +27,7 @@ source( "shiny_compound.R", local = TRUE)
 
 
 ######
-## CONSTANTS
+# CONSTANTS
 pubchem_compound <- "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"
 pubmed_url <- "https://www.ncbi.nlm.nih.gov/pubmed/"
 geo_url <- "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc="
@@ -49,7 +49,8 @@ ui <- fluidPage(
    titlePanel(
      fluidRow( column( 6, h1( "MOD-Finder"), HTML( "<h3>Search for <b>M</b>ulti-<b>O</b>mics <b>D</b>ata sets in various public sources.</h3>")),
                column( 6, img( height = 120, src="UFZ_logo.jpg", class="pull-right"))
-               )
+               ),
+     windowTitle = "MOD-Finder"
    ),
    
    
