@@ -58,7 +58,6 @@ ui <- fluidPage(
    sidebarLayout(
      
       sidebarPanel(
-        
         width = 3,
         
         h4( "Step I - Enter Compound"),
@@ -68,7 +67,9 @@ ui <- fluidPage(
         checkboxGroupInput( inputId = "omicsLayer", choices = c( "Transcriptome" = "trans", "Proteome" = "prot", "Metabolome" = "meta"), label = "Omics Layer" ),
         
         actionButton( inputId = "refineCompound", label = "Refine"),
-        
+      
+        br(),
+        br(),
         hr(),
         
         h4( "Step II - Filter the exact Compound"),
@@ -80,7 +81,7 @@ ui <- fluidPage(
                     label = "Name splitting", choices = c( "Search with refined compound")),
         
         actionButton( inputId = "startSearch", label = "Search")
-                
+        
       ),
       
       # Show a plot of the generated distribution
