@@ -104,6 +104,9 @@ get_cids_by_name <- function( name){
   
   ## create a http request which is used to retrieve all synonyms of a given compound
   ## and the CID
+  
+  name <- gsub( " ", "%20", name)
+  
   request <- paste0( "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/",
                      name, "/synonyms/JSON?name_type=word")
   content <- httr::content( GET( request))

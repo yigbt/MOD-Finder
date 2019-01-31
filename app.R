@@ -25,7 +25,6 @@ source( "shiny_general.R", local = TRUE)
 source( "shiny_compound.R", local = TRUE)
 
 
-
 ######
 # CONSTANTS
 pubchem_compound <- "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"
@@ -62,7 +61,7 @@ ui <- fluidPage(
         
         h4( "Step I - Enter Compound"),
         
-        textInput( inputId = "compoundName", label = "Compound Name", value = "Enter Compound", width = '400px'),
+        textInput( inputId = "compoundName", label = "Compound Name", placeholder = "Enter Compound", width = '400px'),
 
         checkboxGroupInput( inputId = "omicsLayer", choices = c( "Transcriptome" = "trans", "Proteome" = "prot", "Metabolome" = "meta"), label = "Omics Layer" ),
         
@@ -119,6 +118,17 @@ server <- function(input, output, session) {
 
     withProgress( message = "Search similar compound names", value = 0.5, {
       compound_list <- get_cids_by_name( chem$compound)
+      
+      ## remove "NA" from compound_list$name
+      nas <- which( is.na(compound_list$name)) 
+
+      if( length( nas) > 0){
+        compound_list <- compound_list[-nas,]
+      }
+
+      
+      ## display the pubchemIDs with their associated names, in case there are entries left in compound_list
+      ## otherwise display "No compound found!"
       if( nrow( compound_list ) >= 1 ){
         list_input <- paste( compound_list$cid, compound_list$name, sep = " - ")
         updateSelectInput( session, inputId = "compoundList",
