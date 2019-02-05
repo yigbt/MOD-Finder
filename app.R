@@ -45,9 +45,26 @@ ui <- fluidPage(
    
    # Application title
    #titlePanel("Search for multi-omics data sets in various public sources."),
-   titlePanel(
+  
+  titlePanel(
      fluidRow( column( 6, h1( "MOD-Finder"), HTML( "<h3>Search for <b>M</b>ulti-<b>O</b>mics <b>D</b>ata sets in various public sources.</h3>")),
-               column( 6, img( height = 120, src="UFZ_logo.jpg", class="pull-right"))
+               column( 2, 
+                       tags$style(".topimg {
+                            padding-left:10px;
+                            padding-right:10px;
+                          }"),
+                         div( class="topimg", img( height = 110, src="cefic_logo.jpg", class="pull-right"))),
+               column( 2, 
+                       tags$style(".topimgtwo {
+                            margin-left:50px;
+                          }"),
+               div( class="topimgtwo", img( height = 110, src="LRI_logo.jpg"))),
+               column( 2, 
+                       tags$style(".topimgthree {
+                            padding-left:10px;
+                            padding-right:10px;
+                          }"),
+                div( class="topimgthree", img( height = 120, src="UFZ_logo.jpg", class="pull-left")))
                ),
      windowTitle = "MOD-Finder"
    ),
