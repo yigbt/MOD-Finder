@@ -35,7 +35,10 @@ geo_url <- "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc="
 ### try catch for server error warnings!!!!!
 ######
 
-
+######
+# load the compTox database
+######
+load( file = "data/comptox.RData")
 
 # to query proteomexchange database
 #library( rpx)
@@ -133,25 +136,51 @@ server <- function(input, output, session) {
     chem$refineCompound <- input$refineCompound
     chem$compound <- isolate( input$compoundName)
 
-    withProgress( message = "Search similar compound names", value = 0.5, {
-      compound_list <- get_cids_by_name( chem$compound)
+    withProgress( message = "Search for compounds.", value = 0, {
+
+      ## first of all, search comptox dashboard for compounds
+      incProgress( amount = 0.5, detail = "Query comptox dashboard.")
+      compound_list <- get_comptox_by_input( chem$compound)
       
+      ## if an emtpy result is returned, search pubchem
+      if( compound_list$name[1] == "EMPTY"){
+       
+        incProgress( amount = 0.2, detail = "Query pubchem database.")
+        compound_list <- get_cids_by_name( chem$compound)
+        
+      }
+ 
       ## remove "NA" from compound_list$name
       nas <- which( is.na(compound_list$name)) 
 
       if( length( nas) > 0){
         compound_list <- compound_list[-nas,]
+        if( nrow( compound_list) == 0){
+          compound_list <- data.frame( cid=c(0000), name=c("EMPTY"))
+        }
       }
 
-      
       ## display the pubchemIDs with their associated names, in case there are entries left in compound_list
       ## otherwise display "No compound found!"
-      if( nrow( compound_list ) >= 1 ){
+      if( compound_list$name[1] == "EMPTY"){
+
+        showModal( modalDialog(
+          title = "Compound ERROR",
+          "The entered search string lead to NO RESULTS!",
+          easyClose = TRUE
+        ))
+        
+      }
+      
+      if( compound_list$name[1] != "CAS" && compound_list$name[1] != "EMPTY"){
+        
         list_input <- paste( compound_list$cid, compound_list$name, sep = " - ")
-        updateSelectInput( session, inputId = "compoundList",
-                           choices = list_input
-                           )
+          updateSelectInput( session, inputId = "compoundList",
+                             choices = list_input
+                             )
+          
       } else{
+
         updateSelectInput( session = session,
                            inputId = "compoundList",
                            choices = "No compound found!"
@@ -251,6 +280,7 @@ server <- function(input, output, session) {
         ## hence, we have to split the string at the first '-'
         string_elements <- unlist( strsplit( chem$selectedCompound, " - ", fixed = TRUE))
         chem$cid <- string_elements[1]
+        chemical_name <- paste( string_elements[ -1], collapse = " - ")
         chem$exactCompound <- paste( string_elements[ -1], collapse = " - ")
         
         if( input$splitCompound == "all"){
@@ -289,59 +319,58 @@ server <- function(input, output, session) {
         pubchem <- get_synonyms_by_cid( chem$cid)
         synonyms <- pubchem$synonyms
 
-
         ## second: general information, such as SMILE and descriptions
         chem$results <- get_compound_information( chem$cid)
 
         ## get pubchem ID mappings
         pubchem <- get_description_by_cid( chem$cid)
-              
-        incProgress( amount = 0.2, detail = "Collecting CTD Information")
-
-        ## get information about the compound from the CTDbase
-        ## in order to guarantee that the correct compound is found,
-        ## use the MeSH ID retrieved from Pubchem to search the CTDbase
-        ## in case this is not successful,
-        ## use the query_CTD_chem approach which searches for compounds with a specified edit-distance
-        chem$ctd <- NULL
-        if( "MeSH" %in% pubchem$sources){
-          
-          mesh <- strsplit( pubchem$functional_link[ grep( "MeSH", pubchem$sources)], split = ", ")[[1]]
-          if( length( mesh) > 1) chem$ctd <- query_ctd_by_id( mesh[2])
-
-        } 
         
-        if( is.null( chem$ctd)){
-
-          res <- try( { 
-
-            ctd <- query_ctd_chem( terms = chem$exactCompound, max.distance = 1)
-            chem$ctd$Chemical.Name <- ctd@terms@listData$ChemicalName
-            chem$ctd$Chemical.ID <- ctd@terms@listData$ChemicalID
-            if( ctd@terms@listData$CasRN != "") chem$ctd$CasRN <- ctd@terms@listData$CasRN
-            chem$ctd$Synonyms <- ctd@terms@listData$Synonyms
-            if( ctd@terms@listData$DrugBankIDs != "") chem$ctd$DrugBankIDs <- ctd@terms@listData$DrugBankIDs
-
-          }, silent = TRUE)
-          
-        }
+        # incProgress( amount = 0.2, detail = "Collecting CTD Information")
+        # 
+        # ## get information about the compound from the CTDbase
+        # ## in order to guarantee that the correct compound is found,
+        # ## use the MeSH ID retrieved from Pubchem to search the CTDbase
+        # ## in case this is not successful,
+        # ## use the query_CTD_chem approach which searches for compounds with a specified edit-distance
+        # chem$ctd <- NULL
+        # if( "MeSH" %in% pubchem$sources){
+        #   
+        #   mesh <- strsplit( pubchem$functional_link[ grep( "MeSH", pubchem$sources)], split = ", ")[[1]]
+        #   if( length( mesh) > 1) chem$ctd <- query_ctd_by_id( mesh[2])
+        # 
+        # } 
+        # 
+        # if( is.null( chem$ctd)){
+        # 
+        #   res <- try( { 
+        # 
+        #     ctd <- query_ctd_chem( terms = chem$exactCompound, max.distance = 1)
+        #     chem$ctd$Chemical.Name <- ctd@terms@listData$ChemicalName
+        #     chem$ctd$Chemical.ID <- ctd@terms@listData$ChemicalID
+        #     if( ctd@terms@listData$CasRN != "") chem$ctd$CasRN <- ctd@terms@listData$CasRN
+        #     chem$ctd$Synonyms <- ctd@terms@listData$Synonyms
+        #     if( ctd@terms@listData$DrugBankIDs != "") chem$ctd$DrugBankIDs <- ctd@terms@listData$DrugBankIDs
+        # 
+        #   }, silent = TRUE)
+        #   
+        # }
 
 
         ## create a data frame which stores all IDs collected during the runtime
         chem$ids <- data.frame( Database = c( "Pubchem"), IDs = c( sprintf( '<a href=\"https://pubchem.ncbi.nlm.nih.gov/compound/%s\" target=\"_blank\">%s</a>', chem$cid, chem$cid)), stringsAsFactors = FALSE)
         
-        if( "DrugBank" %in% pubchem$sources & !is.null( chem$ctd$CasRN)) {
-          chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
-        } else if( !is.null( chem$ctd$CasRN) & !is.null( chem$ctd$DrugBankIDs)) {
-          chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID", "DrugBank"), IDs = c( chem$ctd$CasRN, chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
-        } else if( !is.null( chem$ctd$CasRN)){
-          chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
-        } else if( !is.null( chem$ctd$DrugBankIDs)){
-          chem$ids <- rbind( chem$ids, data.frame( Database = c( "DrugBank"), IDs = c( chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
-        }
-        chemical_name <- chem$ctd$Chemical.Name
+        # if( "DrugBank" %in% pubchem$sources & !is.null( chem$ctd$CasRN)) {
+        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
+        # } else if( !is.null( chem$ctd$CasRN) & !is.null( chem$ctd$DrugBankIDs)) {
+        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID", "DrugBank"), IDs = c( chem$ctd$CasRN, chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
+        # } else if( !is.null( chem$ctd$CasRN)){
+        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
+        # } else if( !is.null( chem$ctd$DrugBankIDs)){
+        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "DrugBank"), IDs = c( chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
+        # }
+        # chemical_name <- chem$ctd$Chemical.Name
       
-      
+        
         ## if the synonyms list has more than 10 entries, show only the first ten
         ## keep the complete list in chem$synonyms
         ## and save the output list as a single string in chem$synonyms_list
@@ -355,14 +384,21 @@ server <- function(input, output, session) {
         } else{
           chem$synonyms_list <- paste( chem$synonyms, collapse = " | ")
         }
-      
+
+        
+        incProgress( amount = 0.2, detail = "Collecting CompTox Information")
+        comptox <- get_comptox_ids_by_cid( chem$cid)
+        
+        
         ## combine the information into two tables
         ## one focusing on the chemical properties and descriptions
         ## and the other focusing on the IDs conversions and mappings
         chem$results <- rbind( "Chemical Name" = chemical_name, chem$results)
         chem$results <- rbind( chem$results, "Synonyms" = chem$synonyms_list)
+        chem$ids <- rbind( chem$ids, comptox)
         chem$ids <- rbind( chem$ids, data.frame( Database = pubchem$sources, IDs = pubchem$functional_link))
-          
+
+        
         } else{
           
           chem$error <- "No compound information found for initial input name!"
@@ -387,12 +423,14 @@ server <- function(input, output, session) {
         ## check which omics layer ist checked and add the respective tab in the panel
         ## search for data sets only in case the respective omics layer is selected
         progress_time = 0.6 / length( input$omicsLayer)
+        cat( paste0( "transcriptome assessment", "\n"))
         if( "trans" %in% input$omicsLayer ){
 
           ## collect potential transcriptome data sets
           ## use GeoMetadb to search for uploaded data sets were the title contains the compound name
           incProgress( amount = progress_time, detail = "Collecting Transcriptome Data Sets")
           chem$transcriptome <- get_transcriptome_by_list( chem$exactCompoundList)
+          cat( paste0( "transcriptome assessment", "\n"))
           chem$transcriptomeAE <- get_arrayExpress_by_list( chem$exactCompoundList)
           
           ## create a dynamic tab to display the previously gathered information about transcriptomics

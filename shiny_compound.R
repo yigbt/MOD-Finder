@@ -112,7 +112,7 @@ get_cids_by_name <- function( name){
   content <- httr::content( GET( request))
   
   if( "Fault" %in% names(content)){
-    return( data.frame())
+    return( data.frame( cid = c(0000), name = c("EMPTY") ))
   }
   
   cid <- sapply( content$InformationList$Information, function(x) x$CID)
@@ -125,7 +125,12 @@ get_cids_by_name <- function( name){
   cid <- cid[!sapply( synonyms, is.null)]
   synonyms[sapply( synonyms, is.null)] <- NULL
   
-  results <- data.frame( cid = cid, name = unlist( synonyms) )
+  if( length( cid) > 1){
+    results <- data.frame( cid = cid, name = unlist( synonyms) )
+  } else{
+    results <- data.frame( cid = c(0000), name = c("EMPTY"))    
+  }
+  
   
   return( arrange( results, cid))
   
@@ -197,3 +202,79 @@ prepare_CTD_database_file <- function(){
   save( ctd, file="data/CTD_chemicals.RData")
   
 }
+
+#' Search with a given compound name or compound ID in the Comptox database for overlapping hits to refine the search. 
+#' @param compound The search string
+#' 
+get_comptox_by_input <- function( compound){
+  
+  ## check if the input name is a string or an ID
+  ## in case no ID pattern matches, assume the compound is a string
+  if( length( grep( "^DTX[SC]ID\\d+$", compound)) > 0){
+
+        m <- unique( c( match( compound, comptox$DTXSID), match( compound, comptox$DTXCID)))
+  
+  } else if( length( grep( "^\\d+$", compound)) > 0){
+    
+      m <- match( compound, comptox$CID)
+    
+  } else if( length( grep( "^\\d+-\\d\\d-\\d$", compound)) > 0){
+    
+      ## check if cas number is correct
+      if( !is_cas_correct( compound)){
+        showModal( modalDialog(
+          title = "CAS number ERROR",
+          "The entered CAS number is not correct!",
+          easyClose = TRUE
+        ))
+        
+        return( data.frame( cid=c(0000), name=c("CAS")))
+      }
+      
+      m <- match( compound, comptox$CAS)
+
+  } else{
+    
+  
+    ## assume the entered compound is a name
+    ## -> pattern matching with columns NAME ans SYNONYM
+    sids_comptox <- comptox$CTXSID[grep( compound, comptox$NAME)]
+    sids_synonyms <- unique( synonyms$DTXSID[ grep( compound, synonyms$SYNONYM)])
+    sids <- unique( c( sids_comptox, sids_synonyms)) 
+
+    m <- match( sids, comptox$DTXSID)
+
+  }
+
+  m <- m[ !is.na( m)]
+  if( length( m) > 0){
+    df <- data.frame( cid = comptox$CID[ m], name = comptox$NAME[ m])
+  } else{
+    df <- data.frame( cid=c(0000), name=c("EMPTY"))
+  }
+  
+  return( arrange( df, cid))
+  
+}
+
+
+#' Retrieve all IDs from Comptox dashboard that are mapped to a given pubchem ID.
+#' @param cid The input pubchem ID
+#' @return A dataframe with 2 columns for ID source and ID.
+#' @example get_comptox_ids_by_cid( 702)  
+get_comptox_ids_by_cid <- function( cid){
+  
+  m <- match( cid, comptox$CID)
+  m <- m[ !is.na( m)]
+  
+  if( length( m) == 0){
+    return()
+  }
+  
+  df <- data.frame( Database = c( "CAS-RN", "Comptox Dashboard"), IDs = c( comptox$CAS[ m], c( sprintf( '<a href=\"https://comptox.epa.gov/dashboard/%s\" target=\"_blank\">%s</a>', comptox$DTXSID[m], comptox$DTXSID[m]))))
+  return( df)
+  
+}
+
+
+  
