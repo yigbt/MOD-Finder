@@ -81,7 +81,7 @@ ui <- fluidPage(
         
         h4( "Step I - Enter Compound"),
         
-        textInput( inputId = "compoundName", label = "Compound Name", placeholder = "Enter Compound", width = '400px'),
+        textInput( inputId = "compoundName", label = "Compound Name or ID", placeholder = "Enter Compound", width = '400px'),
 
         checkboxGroupInput( inputId = "omicsLayer", choices = c( "Transcriptome" = "trans", "Proteome" = "prot", "Metabolome" = "meta"), label = "Omics Layer" ),
         
@@ -308,6 +308,16 @@ server <- function(input, output, session) {
       }
       
       
+      ## in case the compound List contains parentheses
+      ## add search strings with exchanged parentheses, e.g., ( -> [
+      m <- grep( "\\(", chem$exactCompoundList)
+      changed1 <- gsub( "\\((.*)\\)", "[\\1]", chem$exactCompoundList[m])
+      m <- grep( "\\[", chem$exactCompoundList)
+      changed2 <- gsub( "\\[(.*)\\]", "(\\1)", chem$exactCompoundList[m])
+      chem$exactCompoundList <- c( chem$exactCompoundList, changed1, changed2)
+      
+      
+      
       ## initialize a progress bar showing information about the current step
       withProgress( message="Collecting compound information", value=0, {
       
@@ -423,14 +433,12 @@ server <- function(input, output, session) {
         ## check which omics layer ist checked and add the respective tab in the panel
         ## search for data sets only in case the respective omics layer is selected
         progress_time = 0.6 / length( input$omicsLayer)
-        cat( paste0( "transcriptome assessment", "\n"))
         if( "trans" %in% input$omicsLayer ){
 
           ## collect potential transcriptome data sets
           ## use GeoMetadb to search for uploaded data sets were the title contains the compound name
           incProgress( amount = progress_time, detail = "Collecting Transcriptome Data Sets")
           chem$transcriptome <- get_transcriptome_by_list( chem$exactCompoundList)
-          cat( paste0( "transcriptome assessment", "\n"))
           chem$transcriptomeAE <- get_arrayExpress_by_list( chem$exactCompoundList)
           
           ## create a dynamic tab to display the previously gathered information about transcriptomics
