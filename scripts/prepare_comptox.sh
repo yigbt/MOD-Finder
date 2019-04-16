@@ -11,7 +11,7 @@ inchi="InChI_mapping"
 ## download the comptox download page to extract the current downloadable files
 #######
 
-wget -O "comptox_download.html" https://comptox.epa.gov/dashboard/downloads
+wget -O $dir"comptox_download.html" https://comptox.epa.gov/dashboard/downloads
 
 
 
@@ -21,13 +21,13 @@ wget -O "comptox_download.html" https://comptox.epa.gov/dashboard/downloads
 #######
 
 ## get the current ftp link of the cas number file
-url=`grep "DSSTox Identifier to PubChem Identifier Mapping File" comptox_download.html | sed 's/^.*\(ftp:\/\/.*txt\).*$/\1/'`
+url=`grep "DSSTox Identifier to PubChem Identifier Mapping File" $dir"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*txt\).*$/\1/'`
 wget -O $dir$pubchem".txt" $url
 mv $dir$pubchem".txt" $dir$pubchem".tsv"
 
 
 ## get the current ftp link of the cas number file
-url=`grep ">DSSTox identifiers mapped to CAS Numbers and Names File" comptox_download.html | sed 's/^.*\(ftp:\/\/.*xlsx\).*$/\1/'`
+url=`grep ">DSSTox identifiers mapped to CAS Numbers and Names File" $dir"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*xlsx\).*$/\1/'`
 wget -O $dir$cas".xlsx" $url
 ssconvert -O 'separator="	" format=raw' $dir$cas".xlsx" $dir$cas".txt"
 rm $dir$cas".xlsx"
@@ -36,7 +36,7 @@ sed -i 's/"//g' $dir$cas".tsv"
 
 
 ## get the current ftp link of the synonyms file
-url=`grep "DSSTox Synonyms File" $dir"comptox_download.html" comptox_download.html | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
+url=`grep "DSSTox Synonyms File" $dir"comptox_download.html" $dir"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 wget $url
 unzip $file
@@ -46,7 +46,7 @@ mv ${file::-4}".sdf" $dir"Synonyms.sdf"
 
 ## get the current link of the SDF file
 ## get the filename from the link
-url=`grep "DSSTox SDF File" $dir"comptox_download.html" comptox_download.html | sed 's/^.*\(ftp:\/\/.*sdf.gz\).*$/\1/'`
+url=`grep "DSSTox SDF File" $dir"comptox_download.html" $dir"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*sdf.gz\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 wget $url
 gzip -d $file
@@ -56,7 +56,7 @@ mv ${file::-3} $dir"SDF_file.sdf"
 ## extract the current mapping file from the download page (ftp link)
 ## get the filename from the link
 ## produce the unzipped name of the file, which contains the date of its generation
-url=`grep "DSSTox Mapping File" $dir"comptox_download.html" comptox_download.html | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
+url=`grep "DSSTox Mapping File" $dir"comptox_download.html" $dir"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 unzipped=`echo ${file::-4} | sed 's/\(.*_\)\(.*\)$/dsstox_\2.tsv/'`
 wget $url
@@ -86,13 +86,13 @@ rm dtxsid.txt dtxcid.txt url.txt $dir"SDF_file.sdf"
 ## STEP 3
 ## Extract the synonyms from synonyms.sdf file
 #######
-./sdf2matrix.py -i $dir"Synonyms.sdf" -o $dir"Synonyms.tsv"
+python $dir"sdf2matrix.py" -i $dir"Synonyms.sdf" -o $dir"Synonyms.tsv"
 rm $dir"Synonyms.sdf"
-rm comptox_download.html
+rm $dir"comptox_download.html"
 
 
 #######
 ## STEP 4
 ## Combine the mappings and save the data tables in an R readable-format
 #######
-Rscript prepare_comptox.R $dir
+Rscript $dir"prepare_comptox.R" $dir
