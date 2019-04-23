@@ -26,7 +26,7 @@ caspub <- caspub[ !is.na( caspub)]
 
 ## combine cas and pubchem to create a ID mapping table including
 ## CAS CID SID CTXSID NAME
-comptox <- data.frame( CAS = cas$CAS[ caspub], CID = pubchem$CID, SID = pubchem$SID, DTXSID = pubchem$DTXSID, NAME = cas$NAME[ caspub])
+comptox <- data.frame( CAS = cas$CAS[ caspub], CID = pubchem$CID, SID = pubchem$SID, DTXSID = pubchem$DTXSID, NAME = cas$NAME[ caspub], stringsAsFactors = FALSE)
 
 ## remove those entries where a synonym is present but no mapping to the df data table is possible
 temp <- match( synonyms$DTXSID, comptox$DTXSID)
