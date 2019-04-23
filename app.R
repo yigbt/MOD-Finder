@@ -8,14 +8,15 @@
 #
 
 library( shiny)
-library( tidyverse)
 library( CTDquerier)
 library( httr)
 library( GEOmetadb)
+library( plyr)
+library( tidyverse)
 library( DT)
 library( xml2)
-library( plyr)
 library( stringr)
+library( reshape2)
 
 ## source some code
 source( "shiny_metabolomics.R", local = TRUE)
@@ -23,6 +24,7 @@ source( "shiny_proteomics.R", local = TRUE)
 source( "shiny_transcriptomics.R", local = TRUE)
 source( "shiny_general.R", local = TRUE)
 source( "shiny_compound.R", local = TRUE)
+source( "plot_CTD_information.R", local = TRUE)
 
 
 ######
@@ -39,6 +41,7 @@ geo_url <- "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc="
 # load the compTox database
 ######
 load( file = "data/comptox.RData")
+load( file = "data/CTD_chemicals.RData")
 
 # to query proteomexchange database
 #library( rpx)
@@ -415,6 +418,20 @@ server <- function(input, output, session) {
           
         }
       
+        ## if CAS number or MESH ID is present, query CTD base to generate some informational plots
+        cat( paste( chem$ids$Database, collapse = ", "))
+        ## gather CTDbase information on chemical-gene interactions and plot the top40 genes affected by the analyzed compound
+        # query CTDbase with chemical name
+        if( "CAS-RN" %in% chem$ids$Database ){
+          match <- which( chem$ids$Database == "CAS-RN")
+          chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ids$IDs[ match])]
+          chem$ctd_chem <- query_ctd_chem( chem$ctd_chemical)
+          chem$plot <- TRUE
+          
+        } else {
+          chem$plot <- FALSE
+        }
+        
         ## add the compound information panel
         appendTab( inputId = "tabset",
                    session = session,
@@ -425,7 +442,11 @@ server <- function(input, output, session) {
                              tableOutput( outputId = "tableCompound"),
                              br(),
                              h3( textOutput( outputId = "headerCompoundIDs")),
-                             DT::dataTableOutput( outputId = "tableCompoundIDs"))
+                             DT::dataTableOutput( outputId = "tableCompoundIDs"),
+                             br(),
+                             h3( textOutput( outputId = "headerPlotChemicalGene")),
+                             plotOutput( outputId = "plotChemicalGene"))
+                   
         ) 
         
         
@@ -548,6 +569,23 @@ server <- function(input, output, session) {
   
   )
   
+  output$headerPlotChemicalGene <- renderPrint({
+
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "Gene expression affected by ", paste( chem$exactCompoundList, collapse = ", "))
+    }
+    
+  })
+  
+  output$plotChemicalGene <- renderPlot({
+    
+    if( chem$searchCompound == FALSE) return()    
+    if( chem$plot){
+      plot_chemical_gene_interaction( chem$ctd_chem, chem$ctd_chemical)
+    }
+      
+  })
   
   output$headerTrans <- renderPrint( {
     
