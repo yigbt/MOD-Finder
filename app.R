@@ -86,6 +86,8 @@ ui <- fluidPage(
         
         textInput( inputId = "compoundName", label = "Compound Name or ID", placeholder = "Enter Compound", width = '400px'),
 
+        checkboxGroupInput( inputId = "addInformation", choices = c( "CTDbase Information" = "CTDbase"), selected = c("CTDbase"), label = "Additional Information" ),
+        
         checkboxGroupInput( inputId = "omicsLayer", choices = c( "Transcriptome" = "trans", "Proteome" = "prot", "Metabolome" = "meta"), label = "Omics Layer" ),
         
         actionButton( inputId = "refineCompound", label = "Refine"),
@@ -418,19 +420,8 @@ server <- function(input, output, session) {
           
         }
       
-        ## if CAS number or MESH ID is present, query CTD base to generate some informational plots
-        cat( paste( chem$ids$Database, collapse = ", "))
-        ## gather CTDbase information on chemical-gene interactions and plot the top40 genes affected by the analyzed compound
-        # query CTDbase with chemical name
-        if( "CAS-RN" %in% chem$ids$Database ){
-          match <- which( chem$ids$Database == "CAS-RN")
-          chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ids$IDs[ match])]
-          chem$ctd_chem <- query_ctd_chem( chem$ctd_chemical)
-          chem$plot <- TRUE
-          
-        } else {
-          chem$plot <- FALSE
-        }
+
+        
         
         ## add the compound information panel
         appendTab( inputId = "tabset",
@@ -442,18 +433,69 @@ server <- function(input, output, session) {
                              tableOutput( outputId = "tableCompound"),
                              br(),
                              h3( textOutput( outputId = "headerCompoundIDs")),
-                             DT::dataTableOutput( outputId = "tableCompoundIDs"),
-                             br(),
-                             h3( textOutput( outputId = "headerPlotChemicalGene")),
-                             plotOutput( outputId = "plotChemicalGene"))
-                   
+                             DT::dataTableOutput( outputId = "tableCompoundIDs"))
         ) 
         
         
-        
-        ## check which omics layer ist checked and add the respective tab in the panel
+        ## check which output layer is checked and add the respective tab in the panel
+        ## either search for additional information at CTDbase or
         ## search for data sets only in case the respective omics layer is selected
-        progress_time = 0.6 / length( input$omicsLayer)
+        progress_time = 0.6 / ( length( input$omicsLayer) + length( input$addInformation))
+        
+        if( "CTDbase" %in% input$addInformation ){
+          
+          ## use the CTDbase to gather additional information of the selected compound
+          incProgress( amount = progress_time, detail = "Collecting CTDbase information")
+          chem$plot <- FALSE
+          
+          ## if CAS number or MESH ID is present, query CTD base to generate some informational plots
+          ## gather CTDbase information on chemical-gene interactions and plot the top40 genes affected by the analyzed compound
+          # query CTDbase with chemical name
+          if( "CAS-RN" %in% chem$ids$Database ){
+            
+            match <- which( chem$ids$Database == "CAS-RN")
+            chem$ctd_cas <- chem$ids$IDs[ match]
+            
+            chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ctd_cas)]
+            cat( "chemical: ", chem$ctd_chemical, "\n")
+            chem$ctd_chem <- tryCatch( 
+              query_ctd_chem( chem$ctd_chemical),
+              warning = function(cond){
+                message( "Querying CTDbase resulted in a warning.")
+                return( NULL)
+              },
+              error = function(cond){
+                message( "Querying CTDbase resulted in an error.")
+                return( NULL)
+              })
+            
+            if( !is.null(chem$ctd_chem)){
+              
+              ## test if there are gene interactions with the correct CAS-RN
+              tmp <- get_table( chem$ctd_chem, index_name = "gene interactions")
+              if( length( which( tmp$CAS.RN == chem$ctd_cas)) > 0){
+                chem$plot <- TRUE
+              }
+            }
+            
+          }
+
+          
+          ## create a dynamic tab to display the previously gathered information about transcriptomics
+          appendTab( inputId = "tabset",
+                     session = session,
+                     tabPanel( value = "CTDbase",
+                               title = paste0( "CTDbase"),
+                               h3( textOutput( outputId = "headerGeneralInformationGene")),
+                               plotOutput( outputId = "plotGeneralInformationGene"),
+                               br(),
+                               h3( textOutput( outputId = "headerPlotChemicalGene")),
+                               plotOutput( outputId = "plotChemicalGene"))
+                   
+          )
+        }
+        
+        
         if( "trans" %in% input$omicsLayer ){
 
           ## collect potential transcriptome data sets
@@ -478,6 +520,8 @@ server <- function(input, output, session) {
           
         }
       
+
+        
         if( "prot" %in% input$omicsLayer){
         
           ## collect potential proteome data sets
@@ -518,7 +562,7 @@ server <- function(input, output, session) {
 
     }
     
-    chem$displayedTabs <- input$omicsLayer
+    chem$displayedTabs <- c( input$addInformation, input$omicsLayer)
     
   })
   
@@ -568,7 +612,27 @@ server <- function(input, output, session) {
     escape = FALSE
   
   )
+
+  output$headerGeneralInformationGene <- renderPrint({
+    
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "Information on gene interactions through exposure with ", paste( chem$exactCompoundList, collapse = ", "))
+    }
+    
+  })
   
+  output$plotGeneralInformationGene <- renderPlot({
+    
+    if( chem$searchCompound == FALSE) return()    
+    if( chem$plot){
+      plot_interaction_actions( chem$ctd_chem, chem$ctd_chemical, chem$ctd_cas)
+    }
+    
+  })
+  
+  
+    
   output$headerPlotChemicalGene <- renderPrint({
 
     if( chem$searchCompound == FALSE) return()
@@ -664,6 +728,9 @@ removeTabs <- function( session, displayedTabs){
   
   ## remove tabs displaying search results in case 'search' was hit again
   ## otherwise, the old tabs will also be displayed
+  if( "CTDbase" %in% displayedTabs){
+    removeTab( inputId = "tabset", target = "CTDbase", session = session)
+  }
   if( "trans" %in% displayedTabs){
     removeTab( inputId = "tabset", target = "Transcriptome", session = session)
   }
