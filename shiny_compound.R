@@ -205,7 +205,7 @@ prepare_CTD_database_file <- function(){
 
 #' Search with a given compound name or compound ID in the Comptox database for overlapping hits to refine the search. 
 #' @param compound The search string
-#' 
+#' @return Dataframe containing CIDs and Names of potentially matching compounds
 get_comptox_by_input <- function( compound){
   
   ## check if the input name is a string or an ID
@@ -248,7 +248,7 @@ get_comptox_by_input <- function( compound){
 
   m <- m[ !is.na( m)]
   if( length( m) > 0){
-    df <- data.frame( cid = comptox$CID[ m], name = comptox$NAME[ m])
+    df <- data.frame( cid = as.integer(comptox$CID[ m]), name = comptox$NAME[ m])
   } else{
     df <- data.frame( cid=c(0000), name=c("EMPTY"))
   }

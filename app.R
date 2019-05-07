@@ -73,7 +73,7 @@ ui <- fluidPage(
                 div( class="topimgthree", img( height = 120, src="UFZ_logo.jpg", class="pull-left")))
                ),
      windowTitle = "MOD-Finder"
-   ),
+   ) ,
    
    
    # Sidebar with a slider input for number of bins 
@@ -117,7 +117,7 @@ ui <- fluidPage(
         )
       
       )
-      
+
     )
 )
 
@@ -490,7 +490,15 @@ server <- function(input, output, session) {
                                plotOutput( outputId = "plotGeneralInformationGene"),
                                br(),
                                h3( textOutput( outputId = "headerPlotChemicalGene")),
-                               plotOutput( outputId = "plotChemicalGene"))
+                               plotOutput( outputId = "plotChemicalGene"),
+                               br(),
+                               h3( textOutput( outputId = "headerPlotDiseases")),
+                               plotOutput( outputId = "plotDiseases", height = "600px"),
+                               br(),
+                               h3( textOutput( outputId = "headerPlotPathways")),
+                               plotOutput( outputId = "plotPathways", height = "600px")
+                               
+                     )
                    
           )
         }
@@ -650,6 +658,51 @@ server <- function(input, output, session) {
     }
       
   })
+  
+  
+  output$headerPlotDiseases <- renderPrint({
+    
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "Diseases that are associated with ", paste( chem$exactCompoundList, collapse = ", "))
+    }
+    
+  })
+  
+  output$plotDiseases <- renderPlot({
+    
+    if( chem$searchCompound == FALSE) return()    
+    if( chem$plot){
+      plot_diseases( chem$ctd_chem, chem$ctd_chemical, chem$ctd_cas)
+    }
+    
+  }# , height = function(){
+  #  session$clientData$output_plotDiseases_width
+  #}
+  )
+
+  
+  output$headerPlotPathways <- renderPrint({
+    
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "KEGG Pathway enrichment caused by ", paste( chem$exactCompoundList, collapse = ", "))
+    }
+    
+  })
+  
+  output$plotPathways <- renderPlot({
+    
+    if( chem$searchCompound == FALSE) return()    
+    if( chem$plot){
+      plot_pathways( chem$ctd_chem, chem$ctd_chemical, chem$ctd_cas)
+    }
+    
+  }# , height = function(){
+  #  session$clientData$output_plotPathways_width
+  #}
+  )
+  
   
   output$headerTrans <- renderPrint( {
     

@@ -129,17 +129,17 @@ plot_interaction_actions <- function( ctd_chem, compound, cas){
   data2distr$term <- factor(data2distr$Term, levels=factorlevels)
 
   ## create the pie chart diagrams 
-  pPies <- ggplot(data=data2distr, aes(x="", y=n.x, fill=Attribute))
-  pPies <- pPies + geom_bar(stat="identity", position=position_fill())
-  pPies <- pPies + geom_text(aes(label=n.x), position=position_fill(vjust=0.5))
-  pPies <- pPies + coord_polar(theta="y")
-  pPies <- pPies + facet_wrap(~ Term)
-  pPies <- pPies + scale_fill_manual(values=c("#999999", "skyblue", "salmon"))
-#  pPies <- pPies + theme_minimal()
-  pPies <- pPies + theme(legend.position='top')
-  pPies <- pPies + guides(fill=guide_legend(nrow=2,byrow=TRUE))
-  pPies <- pPies + ggtitle("Distribution of attributes and terms",
-                           subtitle="- of InteractionAction column of Chemicals-gene association -")
+#   pPies <- ggplot(data=data2distr, aes(x="", y=n.x, fill=Attribute))
+#   pPies <- pPies + geom_bar(stat="identity", position=position_fill())
+#   pPies <- pPies + geom_text(aes(label=n.x), position=position_fill(vjust=0.5))
+# #  pPies <- pPies + coord_polar(theta="y")
+#   pPies <- pPies + facet_wrap(~ Term)
+#   pPies <- pPies + scale_fill_manual(values=c("#999999", "skyblue", "salmon"))
+# #  pPies <- pPies + theme_minimal()
+#   pPies <- pPies + theme(legend.position='top')
+#   pPies <- pPies + guides(fill=guide_legend(nrow=2,byrow=TRUE))
+#   pPies <- pPies + ggtitle("Distribution of attributes and terms",
+#                            subtitle="- of InteractionAction column of Chemicals-gene association -")
   
   ## create the bar chart diagram
   pBars <- ggplot(data=data2distr, aes(x=term, y=n.x, fill=Attribute))
@@ -154,5 +154,82 @@ plot_interaction_actions <- function( ctd_chem, compound, cas){
   pBars <- pBars + ggtitle( paste0( "Distribution of attributes and terms of InteractionAction column of Chemicals-gene association caused by ", compound))
 
   return( pBars)
+  
+}
+
+#' This function plots a summary of diseases that are known to be
+#' linked with a certain chemical accroding to CTDbase.org
+#' @param ctd_chem_object The CTD object created with ctd_chem_query().
+#' @param compound The chemical that's being analyzed.
+#' @param cas The CAS-RN of the chemical compound.
+#' @return The ggplot object capturing the bar plot.
+plot_diseases <- function( ctd_chem, compound, cas){
+
+  disease <- as.data.frame( get_table( ctd_chem, index_name = "diseases"))
+  disease <- disease[ which( disease$CAS.RN == cas), ]
+  
+  ## use the top40 diseases for plotting, based on reference count and inference score
+  rfcount <- disease[, c(5,8,9)] %>% arrange( desc( Reference.Count)) %>% slice( 1:40) %>% select( Disease.ID)
+  infscore <- disease[, c(5,8,9)] %>% arrange( desc( Inference.Score)) %>% slice( 1:40) %>% select( Disease.ID)
+  
+  df <- disease[ match( unique( c( rfcount$Disease.ID, infscore$Disease.ID)), disease$Disease.ID), c(2,3,4,5,6,8,9)] %>% arrange( desc( Reference.Count))
+  df$status <- as.factor( ifelse( df$Direct.Evidence == "", "Inferred", "Curated"))
+  
+  max <- max( df$Reference.Count)
+
+  if( max > 1000 ){
+    
+    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000), base =2)
+    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000", "2000", "4000", "6000", "8000", "10000")
+    limit <- 14
+    
+    
+  } else if( max > 100){
+    
+    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000), base =2)
+    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000") 
+    limit <- 10
+    
+  } else{
+    
+    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100), base =2)
+    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100") 
+    limit <- 7
+    
+  }
+
+  plt <- ggplot( data = df, aes( y = log(Reference.Count, base = 2), x = reorder( Disease.Name, Reference.Count), fill = Inference.Score)) + geom_bar( stat="identity") + coord_flip() + facet_grid( status ~ ., scales = "free_y", space = "free_y")
+  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( 0, limit), breaks=breaks, labels=labels)
+  plt <- plt + scale_fill_distiller( palette = "YlOrRd", name = "Inference Score")
+  plt <- plt + xlab( "Disease Name") + ylab( "Reference Counts")
+  plt <- plt + ggtitle( paste0("Diseases that are asscociated with ", compound, " or its descendants"))
+
+  return( plt)
+  
+}
+
+
+#' This function plots a summary of enriched pathways that are known to be
+#' linked with a certain chemical accroding to CTDbase.org
+#' @param ctd_chem_object The CTD object created with ctd_chem_query().
+#' @param compound The chemical that's being analyzed.
+#' @param cas The CAS-RN of the chemical compound.
+#' @return The ggplot object capturing the bar plot.
+plot_pathways <- function( ctd_chem, compound, cas){
+  
+  path <- as.data.frame( get_table( ctd_chem, index_name = "kegg pathways"))
+  
+  df <- path %>% arrange(Corrected.P.value) %>% slice( 1:40) %>% select( Pathway, Corrected.P.value, Annotated.Genes.Quantity, Genome.Frequency)
+  df$Genes <- as.integer( gsub( "/.*", "", df$Genome.Frequency))
+  df$Frequence <- df$Annotated.Genes.Quantity / df$Genes
+  df$Label <- paste0( df$Pathway, " (FDR: ", df$Corrected.P.value, ")")
+
+  plt <- ggplot( data = df, aes( y = Frequence, x= reorder( Label, -Corrected.P.value), fill = Genes)) + geom_bar( stat = "identity") + coord_flip()
+  plt <- plt + ylim( c(0,1)) + xlab( "KEGG Pathway") + ylab( "Ratio( enriched genes / annotated genes)")
+  plt <- plt + scale_fill_distiller( palette = "YlOrRd", name = "Annotated Genes")
+  plt <- plt + ggtitle( "Pathway enrichment analysis based on KEGG pathways")
+  
+  return( plt)
+  
   
 }
