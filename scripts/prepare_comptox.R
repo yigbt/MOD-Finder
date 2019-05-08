@@ -7,14 +7,19 @@ if( length( args) != 1){
 }
 
 ## read all preprocessed comptox files and adapt the headers
-cas <- read.csv( file = paste0( args[1], "Cas_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+cas <- read.csv( file = paste0( args[1], "Cas_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+#cas <- read.csv( file = paste0( "data/", "Cas_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "" )
 colnames( cas) <- c("CAS", "DTXSID", "NAME")
-sdf <- read.csv( file = paste0( args[1], "SDF_file.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+#sdf <- read.csv( file = paste0( "data/", "SDF_file.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+sdf <- read.csv( file = paste0( args[1], "SDF_file.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
 colnames( sdf) <- c("DTXCID", "DTXSID", "URL")
-pubchem <- read.csv( file = paste0( args[1], "Pubchem_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-inchi <- read.csv( file = paste0( args[1], "InChI_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+#pubchem <- read.csv( file = paste0( "data/", "Pubchem_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+pubchem <- read.csv( file = paste0( args[1], "Pubchem_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+#inchi <- read.csv( file = paste0( "data/", "InChI_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+inchi <- read.csv( file = paste0( args[1], "InChI_mapping.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
 colnames( inchi) <- c( "DTXSID", "InChI_String", "InChI_Key")
-synonyms <- read.csv( file = paste0( args[1], "Synonyms.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+#synonyms <- read.csv( file = paste0( "data/", "Synonyms.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
+synonyms <- read.csv( file = paste0( args[1], "Synonyms.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
 colnames( synonyms) <- c( "DTXCID", "DTXSID", "CAS", "NAME", "SYNONYM")
 
 
