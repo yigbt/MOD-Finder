@@ -128,34 +128,19 @@ plot_interaction_actions <- function( ctd_chem, compound, cas){
   factorlevels <- data2_termcount %>% arrange(desc(n)) %>% pull(Term)
   data2distr$term <- factor(data2distr$Term, levels=factorlevels)
 
-  ## create the pie chart diagrams 
-#   pPies <- ggplot(data=data2distr, aes(x="", y=n.x, fill=Attribute))
-#   pPies <- pPies + geom_bar(stat="identity", position=position_fill())
-#   pPies <- pPies + geom_text(aes(label=n.x), position=position_fill(vjust=0.5))
-# #  pPies <- pPies + coord_polar(theta="y")
-#   pPies <- pPies + facet_wrap(~ Term)
-#   pPies <- pPies + scale_fill_manual(values=c("#999999", "skyblue", "salmon"))
-# #  pPies <- pPies + theme_minimal()
-#   pPies <- pPies + theme(legend.position='top')
-#   pPies <- pPies + guides(fill=guide_legend(nrow=2,byrow=TRUE))
-#   pPies <- pPies + ggtitle("Distribution of attributes and terms",
-#                            subtitle="- of InteractionAction column of Chemicals-gene association -")
-  
+
   ## create the bar chart diagram
   pBars <- ggplot(data=data2distr, aes(x=term, y=n.x, fill=Attribute))
   pBars <- pBars + geom_bar(stat="identity")#, position=position_fill())
-#  pBars <- pBars + scale_fill_discrete(name = "Attribute", labels = c("Affects", "Increased", "Decreased"))
   pBars <- pBars + scale_fill_manual(values=c("#999999", "skyblue", "salmon"), name="Attribute", labels=c("Affects", "Increased", "Decreased"))
-  #pBars <- pBars + geom_text(aes(label=n.x), vjust=0.5, size=3.5)
-#  pBars <- pBars + blank_theme_ticks
   pBars <- pBars + theme(axis.text.x = element_text(angle=45, hjust=1))
-  pBars <- pBars + ylab( "Reference Counts")
-#  pBars <- pBars + theme(legend.position='top')
+  pBars <- pBars + ylab( "Reference Counts") + xlab( "Interaction Term")
   pBars <- pBars + ggtitle( paste0( "Distribution of attributes and terms of InteractionAction column of Chemicals-gene association caused by ", compound))
 
   return( pBars)
   
 }
+
 
 #' This function plots a summary of diseases that are known to be
 #' linked with a certain chemical accroding to CTDbase.org

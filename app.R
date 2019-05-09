@@ -17,6 +17,7 @@ library( DT)
 library( xml2)
 library( stringr)
 library( reshape2)
+library( shinycssloaders)
 
 ## source some code
 source( "shiny_metabolomics.R", local = TRUE)
@@ -24,6 +25,7 @@ source( "shiny_proteomics.R", local = TRUE)
 source( "shiny_transcriptomics.R", local = TRUE)
 source( "shiny_general.R", local = TRUE)
 source( "shiny_compound.R", local = TRUE)
+source( "shiny_output_texts.R", local = TRUE)
 source( "plot_CTD_information.R", local = TRUE)
 
 
@@ -82,11 +84,17 @@ ui <- fluidPage(
       sidebarPanel(
         width = 3,
         
-        h4( "Step I - Enter Compound"),
+        h4( "Step I.a - Enter Compound"),
         
         textInput( inputId = "compoundName", label = "Compound Name or ID", placeholder = "Enter Compound", width = '400px'),
+        
+        #br(),
+        #hr(),
+        br(),
+        
+        h4( "Step I.b - Select Outputs" ),
 
-        checkboxGroupInput( inputId = "addInformation", choices = c( "CTDbase Information" = "CTDbase"), selected = c("CTDbase"), label = "Additional Information" ),
+        checkboxGroupInput( inputId = "addInformation", choices = c( "Integrated chemical information (CTDbase)" = "CTDbase"), selected = c("CTDbase"), label = "Additional Information" ),
         
         checkboxGroupInput( inputId = "omicsLayer", choices = c( "Transcriptome" = "trans", "Proteome" = "prot", "Metabolome" = "meta"), label = "Omics Layer" ),
         
@@ -95,6 +103,7 @@ ui <- fluidPage(
         br(),
         br(),
         hr(),
+        br(),
         
         h4( "Step II - Filter the exact Compound"),
         
@@ -340,52 +349,10 @@ server <- function(input, output, session) {
         ## get pubchem ID mappings
         pubchem <- get_description_by_cid( chem$cid)
         
-        # incProgress( amount = 0.2, detail = "Collecting CTD Information")
-        # 
-        # ## get information about the compound from the CTDbase
-        # ## in order to guarantee that the correct compound is found,
-        # ## use the MeSH ID retrieved from Pubchem to search the CTDbase
-        # ## in case this is not successful,
-        # ## use the query_CTD_chem approach which searches for compounds with a specified edit-distance
-        # chem$ctd <- NULL
-        # if( "MeSH" %in% pubchem$sources){
-        #   
-        #   mesh <- strsplit( pubchem$functional_link[ grep( "MeSH", pubchem$sources)], split = ", ")[[1]]
-        #   if( length( mesh) > 1) chem$ctd <- query_ctd_by_id( mesh[2])
-        # 
-        # } 
-        # 
-        # if( is.null( chem$ctd)){
-        # 
-        #   res <- try( { 
-        # 
-        #     ctd <- query_ctd_chem( terms = chem$exactCompound, max.distance = 1)
-        #     chem$ctd$Chemical.Name <- ctd@terms@listData$ChemicalName
-        #     chem$ctd$Chemical.ID <- ctd@terms@listData$ChemicalID
-        #     if( ctd@terms@listData$CasRN != "") chem$ctd$CasRN <- ctd@terms@listData$CasRN
-        #     chem$ctd$Synonyms <- ctd@terms@listData$Synonyms
-        #     if( ctd@terms@listData$DrugBankIDs != "") chem$ctd$DrugBankIDs <- ctd@terms@listData$DrugBankIDs
-        # 
-        #   }, silent = TRUE)
-        #   
-        # }
-
 
         ## create a data frame which stores all IDs collected during the runtime
         chem$ids <- data.frame( Database = c( "Pubchem"), IDs = c( sprintf( '<a href=\"https://pubchem.ncbi.nlm.nih.gov/compound/%s\" target=\"_blank\">%s</a>', chem$cid, chem$cid)), stringsAsFactors = FALSE)
-        
-        # if( "DrugBank" %in% pubchem$sources & !is.null( chem$ctd$CasRN)) {
-        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
-        # } else if( !is.null( chem$ctd$CasRN) & !is.null( chem$ctd$DrugBankIDs)) {
-        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID", "DrugBank"), IDs = c( chem$ctd$CasRN, chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
-        # } else if( !is.null( chem$ctd$CasRN)){
-        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "CAS ID"), IDs = c( chem$ctd$CasRN), stringsAsFactors = FALSE))
-        # } else if( !is.null( chem$ctd$DrugBankIDs)){
-        #   chem$ids <- rbind( chem$ids, data.frame( Database = c( "DrugBank"), IDs = c( chem$ctd$DrugBankIDs), stringsAsFactors = FALSE))
-        # }
-        # chemical_name <- chem$ctd$Chemical.Name
-      
-        
+       
         ## if the synonyms list has more than 10 entries, show only the first ten
         ## keep the complete list in chem$synonyms
         ## and save the output list as a single string in chem$synonyms_list
@@ -481,22 +448,29 @@ server <- function(input, output, session) {
           }
 
           
-          ## create a dynamic tab to display the previously gathered information about transcriptomics
+          ## create a dynamic tab to display the previously CTDbase-gathered information about chemical-gene interactions, pathways, and diseases
           appendTab( inputId = "tabset",
                      session = session,
                      tabPanel( value = "CTDbase",
-                               title = paste0( "CTDbase"),
-                               h3( textOutput( outputId = "headerGeneralInformationGene")),
-                               plotOutput( outputId = "plotGeneralInformationGene"),
+                               title = paste0( "Additional Information"),
+                               h3( paste0( "Information on gene interactions through exposure with ", chem$ctd_chemical)),
+                               p( get_generalInformationDescription( chem$ctd_chemical)),
+                               withSpinner( plotOutput( outputId = "plotGeneralInformationGene")),
                                br(),
-                               h3( textOutput( outputId = "headerPlotChemicalGene")),
-                               plotOutput( outputId = "plotChemicalGene"),
                                br(),
-                               h3( textOutput( outputId = "headerPlotDiseases")),
-                               plotOutput( outputId = "plotDiseases", height = "600px"),
+                               h3( paste0( "Gene expression affected by ", chem$ctd_chemical)), 
+                               p( get_chemicalGeneDescription( chem$ctd_chemical)), 
+                               withSpinner( plotOutput( outputId = "plotChemicalGene")),
                                br(),
-                               h3( textOutput( outputId = "headerPlotPathways")),
-                               plotOutput( outputId = "plotPathways", height = "600px")
+                               br(),
+                               h3( paste0( "Diseases that are associated with ", chem$ctd_chemical)), 
+                               p( get_diseasesDescription( chem$ctd_chemical)),
+                               withSpinner( plotOutput( outputId = "plotDiseases", height = "600px")),
+                               br(),
+                               br(),
+                               h3( paste0( "Pathway enrichment caused by ", chem$ctd_chemical)), 
+                               p( get_pathwaysDescription( chem$ctd_chemical)),
+                               withSpinner(plotOutput( outputId = "plotPathways", height = "600px"))
                                
                      )
                    
@@ -513,7 +487,6 @@ server <- function(input, output, session) {
           chem$transcriptomeAE <- get_arrayExpress_by_list( chem$exactCompoundList)
           
           ## create a dynamic tab to display the previously gathered information about transcriptomics
-
           lines <- nrow( chem$transcriptome) + nrow( chem$transcriptomeAE)
           appendTab( inputId = "tabset",
                      session = session,
@@ -630,6 +603,27 @@ server <- function(input, output, session) {
     
   })
   
+  
+  output$descriptionGeneralInformationGene <- renderPrint({
+    
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "\n")
+      cat( "In the figure below, all mentioned 'InteractionActions' that are collected by the CTDbase with regard to ", chem$ctd_chemical,
+           "are clustered. 'InteractionActions' groups interactions into classes and can be combined such that multiple IAs can 
+            be used to describe chemical-gene relations. The different IAs contain one or more interaction terms, separated by | character,
+            from a dictionary of 79 entries. Each of these terms are mostly prefixed by an attribute such as 'increases', 'decreases',
+            'affects', yielding IAs in the form of 'increases^expression | affects^activity'. 
+            All IAs that are connected with chemical-gene interactions triggered by", chem$ctd_chemical," are displayed in the following plot,
+            where  the number of references of each IA is shown in a stacked bar plot.")
+      cat("\n")
+            cat("\n")
+                  cat("\n")
+                        cat("\n")
+    }
+    
+  })
+  
   output$plotGeneralInformationGene <- renderPlot({
     
     if( chem$searchCompound == FALSE) return()    
@@ -646,6 +640,17 @@ server <- function(input, output, session) {
     if( chem$searchCompound == FALSE) return()
     if( chem$plot){
       cat( "Gene expression affected by ", paste( chem$exactCompoundList, collapse = ", "))
+    }
+    
+  })
+  
+  output$descriptionChemicalGene <- renderPrint({
+    
+    if( chem$searchCompound == FALSE) return()
+    if( chem$plot){
+      cat( "With a focus on the effects triggered by the exposure, the number of references that mention either a deacrease or increase 
+           in expression changes where plotted for the top40 genes (highest number of references).
+           Publications that merely mention an 'affect' rather than specifying the direction are addtionally visualized at the right side of the figure.")
     }
     
   })
