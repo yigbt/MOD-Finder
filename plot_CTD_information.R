@@ -20,14 +20,17 @@ plot_chemical_gene_interaction <- function( ctd_chem, compound){
   ## then extract the top40 or whatever genes, based on their cumulative reference count and plot a horizontal bar chart.
   inc <- df[ grep( "increases\\^expression", df$Interaction.Actions), c(10, 4, 8)]
   dec <- df[ grep( "decreases\\^expression", df$Interaction.Actions), c(10, 4, 8)]
+  aff <- df[ grep( "affects\\^expression", df$Interaction.Actions), c( 10, 4, 8)]
   
   ## summarize the reference counts
   inc2 <- inc %>% dplyr::group_by( Gene.Symbol) %>% dplyr::summarise( increase.Ref = sum( Reference.Count)) %>% dplyr::arrange( desc( increase.Ref))
   dec2 <- dec %>% dplyr::group_by( Gene.Symbol) %>% dplyr::summarise( decrease.Ref = sum( Reference.Count)) %>% dplyr::arrange( desc( decrease.Ref))
+  aff2 <- aff %>% dplyr::group_by( Gene.Symbol) %>% dplyr::summarise( affects.Ref = sum( Reference.Count)) %>% dplyr::arrange( desc( affects.Ref))
   genes <- unique( c( inc2$Gene.Symbol, dec2$Gene.Symbol))
   
   
-  # combine both tibble to a single data.frame
+  ## combine both tibbles to a single data.frame
+  ## change the reference counts to log scale and transform the axis accordingly
   plotme <- data.frame( Gene.Symbol = genes, increase.Ref = rep( 0, length( genes)), decrease.Ref = rep( 0, length( genes)), abs = rep(0, length( genes)))
   plotme$increase.Ref[ match( inc2$Gene.Symbol, plotme$Gene.Symbol)] <- log( inc2$increase.Ref, base = 2)
   plotme$decrease.Ref[ match( dec2$Gene.Symbol, plotme$Gene.Symbol)] <- log( dec2$decrease.Ref, base = 2)
@@ -35,40 +38,52 @@ plot_chemical_gene_interaction <- function( ctd_chem, compound){
   plotme <- plotme %>% dplyr::arrange( desc(abs)) %>% slice(1:40)
   plotme$decrease.Ref <- -1 * plotme$decrease.Ref
   plotme.df <- melt( plotme[, c(1,2,3)], value.name = "Reference.Count", variable.name = "Direction")
+  plotme.df$Direction <- ifelse( plotme.df$Direction == "increase.Ref", "Increased", "Decreased")
   
   max <- max( c( inc2$increase.Ref, dec2$decrease.Ref))
-  
-  if( max > 1000 ){
-    
-    logbreak <- log( c(1, 10, 100, 1000, 10000), base =2)
-    breaks <- c( -1 * rev( logbreak), logbreak[2:5])
-    labels <- c( "10000", "1000", "100", "10", "0", "10", "100", "1000", "10000")
-    limit <- 14
-    
-    
-  } else if( max > 100){
-    
-    logbreak <- log( c(1, 10, 100, 1000), base =2)
-    breaks <- c( -1 * rev( logbreak), logbreak[2:4])
-    labels <- c( "1000", "100", "10", "0", "10", "100", "1000") 
-    limit <- 10
-    
-  } else{
-    
-    logbreak <- log( c(1, 10, 100), base =2)
-    breaks <- c( -1 * rev( logbreak), logbreak[2:3])
-    labels <- c( "100", "10", "0", "10", "100") 
-    limit <- 7
-    
-  }
+  logAxis <- get_log_labels( max, mirror = TRUE)
   
   plt <- ggplot( data = plotme.df, aes( x = Gene.Symbol, y = Reference.Count, fill = Direction)) + geom_bar(stat="identity") + coord_flip()
-  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( -1*limit, limit), breaks=breaks, labels=labels)
-  plt <- plt + scale_fill_manual( values = c("skyblue", "salmon"), name = "Attribute", labels = c("Increased", "Decreased"))
+  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( -1*logAxis$limit, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
+  plt <- plt + scale_fill_manual( values = c("skyblue", "salmon", "#999999"), name = "Attribute", labels = c("Increased", "Decreased", "Affects"), drop = FALSE, limits = c( "Increased", "Decreased", "Affects"))
   plt <- plt + xlab( "Gene Symbol") + ylab( "Reference Counts")
   plt <- plt + ggtitle( paste0("Changes in gene expression triggered by ", compound))
 
-  return( plt)
+  
+  ## create a separated plot for affects on gene expression
+  ## first, shrink the dataframe to those genes plotted in the above plot
+  aff_plotme <- data.frame( Gene.Symbol = plotme$Gene.Symbol, affects.Ref = rep(0, length( plotme$Gene.Symbol)), affects.RefLog = rep( 0, length( plotme$Gene.Symbol)))
+  m <- match( aff_plotme$Gene.Symbol, aff2$Gene.Symbol)
+  n <- is.na(m)
+  m <- m[ !n]
+  aff_plotme$affects.RefLog[ !n] <- log( aff2$affects.Ref[m], base = 2)
+  aff_plotme$affects.Ref[ !n] <- aff2$affects.Ref[m]
+  aff_plotme$Direction <- rep( "Affects", nrow( aff_plotme))
+  
+  ## adapt the axis
+  max <- max( aff_plotme$affects.Ref)
+  
+  if( max > 10){
+    logAxis <- get_log_labels( max)
+    
+    aff_plt <- ggplot( data = aff_plotme, aes( x = Gene.Symbol, y = affects.RefLog, fill = Direction))
+    
+  } else{
+    logAxis <- list( labels = seq(0,10), breaks = seq( 0, 10), limit = 10)  
+    aff_plt <- ggplot( data = aff_plotme, aes( x = Gene.Symbol, y = affects.Ref, fill = Direction))
+    
+  }
+  
+  aff_plt <- aff_plt + geom_bar( stat = "identity") + coord_flip()
+  aff_plt <- aff_plt + scale_y_continuous( expand = c(0,0), limits = c( 0, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
+  aff_plt <- aff_plt + scale_fill_manual( values = c("skyblue", "salmon", "#999999"), name = "Attribute", labels = c("Increased", "Decreased", "Affects"), drop = FALSE, limits = c("Increased", "Decreased", "Affects"))
+  aff_plt <- aff_plt + xlab( "") + ylab( "Reference Counts")
+  aff_plt <- aff_plt + ggtitle( "")
+  
+  final_plt <- ggarrange( plt, aff_plt, common.legend = TRUE, widths = c(5,2), legend = "bottom")
+
+  
+  return( final_plt)
   
 }
 
@@ -162,29 +177,10 @@ plot_diseases <- function( ctd_chem, compound, cas){
   
   max <- max( df$Reference.Count)
 
-  if( max > 1000 ){
-    
-    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000), base =2)
-    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000", "2000", "4000", "6000", "8000", "10000")
-    limit <- 14
-    
-    
-  } else if( max > 100){
-    
-    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000), base =2)
-    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000") 
-    limit <- 10
-    
-  } else{
-    
-    breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100), base =2)
-    labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100") 
-    limit <- 7
-    
-  }
+  logAxis <- get_log_labels( max)
 
   plt <- ggplot( data = df, aes( y = log(Reference.Count, base = 2), x = reorder( Disease.Name, Reference.Count), fill = Inference.Score)) + geom_bar( stat="identity") + coord_flip() + facet_grid( status ~ ., scales = "free_y", space = "free_y")
-  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( 0, limit), breaks=breaks, labels=labels)
+  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( 0, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
   plt <- plt + scale_fill_distiller( palette = "YlOrRd", name = "Inference Score")
   plt <- plt + xlab( "Disease Name") + ylab( "Reference Counts")
   plt <- plt + ggtitle( paste0("Diseases that are asscociated with ", compound, " or its descendants"))
@@ -216,5 +212,61 @@ plot_pathways <- function( ctd_chem, compound, cas){
   
   return( plt)
   
+  
+}
+
+
+get_log_labels <- function( max, mirror = FALSE){
+  
+  if( mirror == TRUE ){
+    if( max > 1000 ){
+      
+      logbreak <- log( c(1, 10, 100, 1000, 10000), base =2)
+      breaks <- c( -1 * rev( logbreak), logbreak[2:5])
+      labels <- c( "10000", "1000", "100", "10", "0", "10", "100", "1000", "10000")
+      limit <- 14
+      
+      
+    } else if( max > 100){
+      
+      logbreak <- log( c(1, 10, 100, 1000), base =2)
+      breaks <- c( -1 * rev( logbreak), logbreak[2:4])
+      labels <- c( "1000", "100", "10", "0", "10", "100", "1000") 
+      limit <- 10
+      
+    } else{
+      
+      logbreak <- log( c(1, 10, 100), base =2)
+      breaks <- c( -1 * rev( logbreak), logbreak[2:3])
+      labels <- c( "100", "10", "0", "10", "100") 
+      limit <- 7
+      
+    }
+  } else {
+    
+    
+    if( max > 1000 ){
+      
+      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000), base =2)
+      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000", "2000", "4000", "6000", "8000", "10000")
+      limit <- 14
+      
+      
+    } else if( max > 100){
+      
+      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000), base =2)
+      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000") 
+      limit <- 10
+      
+    } else{
+      
+      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100), base =2)
+      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100") 
+      limit <- 7
+      
+    }
+  }
+  
+  return( logAxis <- list( labels = labels, breaks = breaks, limit = limit))
   
 }
