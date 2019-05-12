@@ -18,6 +18,7 @@ library( xml2)
 library( stringr)
 library( reshape2)
 library( shinycssloaders)
+library( ggpubr)
 
 ## source some code
 source( "shiny_metabolomics.R", local = TRUE)
@@ -121,15 +122,42 @@ ui <- fluidPage(
       mainPanel(
         
         
-        tabsetPanel( id = "tabset"
-        
+        tabsetPanel( id = "tabset",
+                     tabPanel( value = "about",
+                             title = "About",
+                             h1("Welcome to MOD-Finder"),
+                             p( "MOD-Finder is an easy-to-use R Shiny tool to search for compound-related omics datasets in different layer: transcriptome, proteome, metabolome."),
+                             br(),
+                             h3( "MOD-Finder Workflow"),
+                             p( "Given a certain chemical name or ID, MOD-Finder uses the CompTox Dashboard and Pubchem databases to digitally identify the compound. In a next step, omics data sets, that are somehow linked with this compound are searched in public databases. Therefore, the user can choose which specific omics layer are targeted, e.g., transcriptomics, proteomics, and/or metabolomics. Furthermore, compound-specific information can be retrieved from additional sources (CTDbase) and will be visualized to provide insights into the perturbations that are known to be triggered by a specific chemical."),
+                             br(),
+                             h3( "Public omics databases that can be queried by MOD-Finder:"),
+                             p( fluidRow( column( 3, img( src = "geo_logo.jpg", height = 80)),
+                                       column( 3, img( src = "AE_logo.png", height = 80)),
+                                       column( 3, img( src = "pride_transparent.png", height = 80))
+                             ),
+                             br(), 
+                             fluidRow( column( 3, img( src = "metabolights_logo.jpg", height = 80)),
+                                       column( 3, img( src = "met_workbench_logo.jpg", height = 80)),
+                                       column( 3, img( src = "MeRy-B2_logo.png", height = 80)),
+                                       column( 3, img( src = "metabolonote_logo135px.png", height = 80))
+                             )),
+                             br(),
+                             br(),
+                             h3( "How to use MOD-Finder"),
+                             p( "Steps to run"),
+                             br(),
+                             h3( "Further Reading"),
+                             p( "For more detailed information, please have a look at the Application Note: Canzler et al., 2019, MOD-Finder: Identify mulit-omics data sets related to defined chemical exposure (submitted)"),
+                             br(),
+                             h3( "Funding"),
+                             p( "This work was funded by the Cefic Long-Range Research Initiative Programme (Project ", a( "C5-XomeTox", href = "http://cefic-lri.org/projects/c5-xometox-evaluating-multi-omics-integration-for-assessing-rodent-thyroid-toxicity/"), ").")
+                            
+                    )
         )
-      
-      )
-
-    )
+  )
 )
-
+)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -460,12 +488,12 @@ server <- function(input, output, session) {
                                br(),
                                h3( paste0( "Gene expression affected by ", chem$ctd_chemical)), 
                                p( get_chemicalGeneDescription( chem$ctd_chemical)), 
-                               withSpinner( plotOutput( outputId = "plotChemicalGene")),
+                               withSpinner( plotOutput( outputId = "plotChemicalGene", height = "600px")),
                                br(),
                                br(),
                                h3( paste0( "Diseases that are associated with ", chem$ctd_chemical)), 
                                p( get_diseasesDescription( chem$ctd_chemical)),
-                               withSpinner( plotOutput( outputId = "plotDiseases", height = "600px")),
+                               withSpinner( plotOutput( outputId = "plotDiseases", height = "700px")),
                                br(),
                                br(),
                                h3( paste0( "Pathway enrichment caused by ", chem$ctd_chemical)), 
