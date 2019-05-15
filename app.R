@@ -36,9 +36,6 @@ pubchem_compound <- "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"
 pubmed_url <- "https://www.ncbi.nlm.nih.gov/pubmed/"
 geo_url <- "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc="
 
-######
-### try catch for server error warnings!!!!!
-######
 
 ######
 # load the compTox database
@@ -132,23 +129,32 @@ ui <- fluidPage(
                              p( "Given a certain chemical name or ID, MOD-Finder uses the CompTox Dashboard and Pubchem databases to digitally identify the compound. In a next step, omics data sets, that are somehow linked with this compound are searched in public databases. Therefore, the user can choose which specific omics layer are targeted, e.g., transcriptomics, proteomics, and/or metabolomics. Furthermore, compound-specific information can be retrieved from additional sources (CTDbase) and will be visualized to provide insights into the perturbations that are known to be triggered by a specific chemical."),
                              br(),
                              h3( "Public omics databases that can be queried by MOD-Finder:"),
-                             p( fluidRow( column( 3, img( src = "geo_logo.jpg", height = 80)),
-                                       column( 3, img( src = "AE_logo.png", height = 80)),
-                                       column( 3, img( src = "pride_transparent.png", height = 80))
+                             p( fluidRow( column( 3, a(img( src = "geo_logo.jpg", height = 80), href = "https://www.ncbi.nlm.nih.gov/geo/" )),
+                                       column( 3, a( img( src = "AE_logo.png", height = 80), href = "https://www.ebi.ac.uk/arrayexpress/")),
+                                       column( 3, a( img( src = "pride_transparent.png", height = 80), href ="https://www.ebi.ac.uk/pride/archive/"))
                              ),
                              br(), 
-                             fluidRow( column( 3, img( src = "metabolights_logo.jpg", height = 80)),
-                                       column( 3, img( src = "met_workbench_logo.jpg", height = 80)),
-                                       column( 3, img( src = "MeRy-B2_logo.png", height = 80)),
-                                       column( 3, img( src = "metabolonote_logo135px.png", height = 80))
+                             fluidRow( column( 3, a( img( src = "metabolights_logo.jpg", height = 80), href = "https://www.ebi.ac.uk/metabolights/")),
+                                       column( 3, a( img( src = "met_workbench_logo.jpg", height = 80), href = "https://www.metabolomicsworkbench.org/")),
+                                       column( 3, a( img( src = "MeRy-B2_logo.png", height = 80), href = "http://services.cbib.u-bordeaux.fr/MERYB/")),
+                                       column( 3, a( img( src = "metabolonote_logo135px.png", height = 80), href = "http://metabolonote.kazusa.or.jp/Main_Page"))
                              )),
                              br(),
                              br(),
                              h3( "How to use MOD-Finder"),
-                             p( "Steps to run"),
+                             p( h4( "1) Specify the compound of interest"),
+                                p( "- In ", strong("Step I.a"), " insert either the compound name, a synonym, or the ID (Pubchem, CAS, or Comptox Dashboard)"),
+                                h4( "2) Select the ouputs"),
+                                p("- Specify if additional compound information should be retrieved, integrated, and visualized"),
+                                p("- Specify in which omics layer data sets should be searched for"),
+                                p("- Click the 'Refine' buttion"),
+                                h4( "3) Refine the exact search string(s)"),
+                                p( "- When a compound of interest results in multiple potential search strings, use the provided options in ", strong( "Step II"), " to specify either the exact search string that should be used for the hunt for omics data sets or search with all combinations." ),
+                                p( "- Click the 'Search' button")
+                             ),
                              br(),
                              h3( "Further Reading"),
-                             p( "For more detailed information, please have a look at the Application Note: Canzler et al., 2019, MOD-Finder: Identify mulit-omics data sets related to defined chemical exposure (submitted)"),
+                             p( "For more detailed information, please have a look at the Application Note: Canzler ", em("et al."), ", 2019, ", em("MOD-Finder: Identify mulit-omics data sets related to defined chemical exposure"), " (submitted)"),
                              br(),
                              h3( "Funding"),
                              p( "This work was funded by the Cefic Long-Range Research Initiative Programme (Project ", a( "C5-XomeTox", href = "http://cefic-lri.org/projects/c5-xometox-evaluating-multi-omics-integration-for-assessing-rodent-thyroid-toxicity/"), ").")
@@ -368,9 +374,14 @@ server <- function(input, output, session) {
         ## collect information from pubchem using PUG REST
         ## first: CID and synonyms
         incProgress( amount = 0.2, detail = "Collecting Pubchem Information")
+          
+          
+        ## Retrieve a list of synonyms through a RESTful HTTP request
+        ## by means of the CID
         pubchem <- get_synonyms_by_cid( chem$cid)
-        synonyms <- pubchem$synonyms
+        chem$synonyms <- unique( tolower( pubchem$synonyms))
 
+        
         ## second: general information, such as SMILE and descriptions
         chem$results <- get_compound_information( chem$cid)
 
@@ -384,11 +395,6 @@ server <- function(input, output, session) {
         ## if the synonyms list has more than 10 entries, show only the first ten
         ## keep the complete list in chem$synonyms
         ## and save the output list as a single string in chem$synonyms_list
-        if( !is.null( chem$ctd$Synonyms)){
-          chem$synonyms <- strsplit( as.character( chem$ctd$Synonyms), split = "\\|")[[1]]
-        }
-        chem$synonyms <- unique( tolower( c( chem$synonyms, synonyms)))
-
         if( length( chem$synonyms > 10)){
           chem$synonyms_list <- paste0( paste( chem$synonyms[1:10], collapse = " | "), " ... (10 of ", length( chem$synonyms), ")" )
         } else{
@@ -418,96 +424,54 @@ server <- function(input, output, session) {
 
         
         
-        ## add the compound information panel
-        appendTab( inputId = "tabset",
-                   session = session,
-                   select = TRUE,
-                   tabPanel( value = "Compound",
-                             title = "Compound Information",
-                             h3(textOutput( outputId = "headerCompound")),
-                             tableOutput( outputId = "tableCompound"),
-                             br(),
-                             h3( textOutput( outputId = "headerCompoundIDs")),
-                             DT::dataTableOutput( outputId = "tableCompoundIDs"))
-        ) 
-        
         
         ## check which output layer is checked and add the respective tab in the panel
         ## either search for additional information at CTDbase or
         ## search for data sets only in case the respective omics layer is selected
         progress_time = 0.6 / ( length( input$omicsLayer) + length( input$addInformation))
         
-        if( "CTDbase" %in% input$addInformation ){
+        
+        if( "meta" %in% input$omicsLayer){
           
-          ## use the CTDbase to gather additional information of the selected compound
-          incProgress( amount = progress_time, detail = "Collecting CTDbase information")
-          chem$plot <- FALSE
+          ## collect potential metabolome data sets
+          ## use ?? to search Metabolights and Metabolomics Workbench
+          incProgress( amount = progress_time, detail = "Collecting Metabolome Data Sets")
+          chem$metabolome <- get_metabolomeXchange_by_list( chem$exactCompoundList)
           
-          ## if CAS number or MESH ID is present, query CTD base to generate some informational plots
-          ## gather CTDbase information on chemical-gene interactions and plot the top40 genes affected by the analyzed compound
-          # query CTDbase with chemical name
-          if( "CAS-RN" %in% chem$ids$Database ){
-            
-            match <- which( chem$ids$Database == "CAS-RN")
-            chem$ctd_cas <- chem$ids$IDs[ match]
-            
-            chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ctd_cas)]
-            cat( "chemical: ", chem$ctd_chemical, "\n")
-            chem$ctd_chem <- tryCatch( 
-              query_ctd_chem( chem$ctd_chemical),
-              warning = function(cond){
-                message( "Querying CTDbase resulted in a warning.")
-                return( NULL)
-              },
-              error = function(cond){
-                message( "Querying CTDbase resulted in an error.")
-                return( NULL)
-              })
-            
-            if( !is.null(chem$ctd_chem)){
-              
-              ## test if there are gene interactions with the correct CAS-RN
-              tmp <- get_table( chem$ctd_chem, index_name = "gene interactions")
-              if( length( which( tmp$CAS.RN == chem$ctd_cas)) > 0){
-                chem$plot <- TRUE
-              }
-            }
-            
-          }
-
-          
-          ## create a dynamic tab to display the previously CTDbase-gathered information about chemical-gene interactions, pathways, and diseases
-          appendTab( inputId = "tabset",
+          hits <- nrow( chem$metabolome)
+          ## create a dynamic tab to display the previously gathered information about metabolomics
+          prependTab( inputId = "tabset",
                      session = session,
-                     tabPanel( value = "CTDbase",
-                               title = paste0( "Additional Information"),
-                               h3( paste0( "Information on gene interactions through exposure with ", chem$ctd_chemical)),
-                               p( get_generalInformationDescription( chem$ctd_chemical)),
-                               withSpinner( plotOutput( outputId = "plotGeneralInformationGene")),
-                               br(),
-                               br(),
-                               h3( paste0( "Gene expression affected by ", chem$ctd_chemical)), 
-                               p( get_chemicalGeneDescription( chem$ctd_chemical)), 
-                               withSpinner( plotOutput( outputId = "plotChemicalGene", height = "600px")),
-                               br(),
-                               br(),
-                               h3( paste0( "Diseases that are associated with ", chem$ctd_chemical)), 
-                               p( get_diseasesDescription( chem$ctd_chemical)),
-                               withSpinner( plotOutput( outputId = "plotDiseases", height = "700px")),
-                               br(),
-                               br(),
-                               h3( paste0( "Pathway enrichment caused by ", chem$ctd_chemical)), 
-                               p( get_pathwaysDescription( chem$ctd_chemical)),
-                               withSpinner(plotOutput( outputId = "plotPathways", height = "600px"))
-                               
-                     )
-                   
+                     tabPanel( value = "Metabolome",
+                               title = paste0( "Metabolome (", hits, ")"),
+                               h3(textOutput( outputId = "headerMeta")),
+                               DT::dataTableOutput( outputId = "tableMeta"))
           )
         }
         
+
+        if( "prot" %in% input$omicsLayer){
+          
+          ## collect potential proteome data sets
+          ## use the rpx package to search amongst proteinXchange-uploaded data sets
+          incProgress( amount = progress_time, detail = "Collecting Proteome Data Sets")
+          chem$proteome <- get_proteome_by_list( chem$exactCompoundList)
+          
+          ## create a dynamic tab to display the previously gathered information about proteomics
+          prependTab( inputId = "tabset",
+                     session = session,
+                     tabPanel( value = "Proteome",
+                               title = paste0( "Proteome (", nrow( chem$proteome), ")"),
+                               h3(textOutput( outputId = "headerProt")),
+                               DT::dataTableOutput( outputId = "tableProt"))
+          )
+          
+        }
+        
+
         
         if( "trans" %in% input$omicsLayer ){
-
+          
           ## collect potential transcriptome data sets
           ## use GeoMetadb to search for uploaded data sets were the title contains the compound name
           incProgress( amount = progress_time, detail = "Collecting Transcriptome Data Sets")
@@ -516,7 +480,7 @@ server <- function(input, output, session) {
           
           ## create a dynamic tab to display the previously gathered information about transcriptomics
           lines <- nrow( chem$transcriptome) + nrow( chem$transcriptomeAE)
-          appendTab( inputId = "tabset",
+          prependTab( inputId = "tabset",
                      session = session,
                      tabPanel( value = "Transcriptome",
                                title = paste0( "Transcriptome (", lines, ")"),
@@ -528,44 +492,128 @@ server <- function(input, output, session) {
           )
           
         }
-      
+        
+        
+        if( "CTDbase" %in% input$addInformation ){
+          
+          ## use the CTDbase to gather additional information of the selected compound
+          incProgress( amount = progress_time, detail = "Collecting CTDbase information")
+          chem$plot <- FALSE
+          
+          ## if CAS number or MESH ID is present, query CTD base to generate some informational plots
+          ## gather CTDbase information on chemical-gene interactions and plot the top40 genes affected by the analyzed compound
+          ## query CTDbase with chemical name
+          ##
+          ## FIRST: try to use the CAS-RN to extract the compound name from the CTD file
+          if( "CAS-RN" %in% chem$ids$Database ){
+            
+            match <- which( chem$ids$Database == "CAS-RN")
+            chem$ctd_cas <- chem$ids$IDs[ match]
+            chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ctd_cas)]
 
-        
-        if( "prot" %in% input$omicsLayer){
-        
-          ## collect potential proteome data sets
-          ## use the rpx package to search amongst proteinXchange-uploaded data sets
-          incProgress( amount = progress_time, detail = "Collecting Proteome Data Sets")
-          chem$proteome <- get_proteome_by_list( chem$exactCompoundList)
-        
-          ## create a dynamic tab to display the previously gathered information about proteomics
-          appendTab( inputId = "tabset",
-                     session = session,
-                     tabPanel( value = "Proteome",
-                               title = paste0( "Proteome (", nrow( chem$proteome), ")"),
-                               h3(textOutput( outputId = "headerProt")),
-                               DT::dataTableOutput( outputId = "tableProt"))
-          )
+          }
+          ## 
+          ## SECOND: if that fails, try to search with the Mesh ID, if present
+          if( length(chem$ctd_chemical) == 0 && "MeSH" %in% chem$ids$Database ){
+            
+            chem$ctd_cas <- NULL
+            match <- which( chem$ids$Database == "MeSH")
+            chem$ctd_mesh <- chem$ids$IDs[ match]
+
+            chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$CasRN == chem$ctd_mesh)]
+            
+          }
+          ##
+          ## THIRD: if that also fails, check if the exact compound name is already given
+          ## therefore, apply a simple string search
+          if( length(chem$ctd_chemical) == 0){
+            
+            chem$ctd_cas <- NULL
+            chem$ctd_chemical <- ctd$Chemical.Name[ which( ctd$Chemical.Name == chem$exactCompound)]
+            
+          }
           
+
+          ## when a compound name was retrieved from the CTD base file
+          ## run the query_ctd_chem command, to gather all necessary information
+          ## that is needed for plotting
+          if( length(chem$ctd_chemical) != 0 ){            
+  
+            chem$ctd_chem <- tryCatch( 
+              query_ctd_chem( chem$ctd_chemical, filename = "data/CTD_chemicals.tsv.gz"),
+              warning = function(cond){
+                message( "Querying CTDbase resulted in a warning.")
+                return( NULL)
+              },
+              error = function(cond){
+                message( "Querying CTDbase resulted in an error.")
+                return( NULL)
+              })
+
+            chem$plot <- TRUE
+
+          }
+
+
+          if( chem$plot == TRUE){
+            ## create a dynamic tab to display the previously CTDbase-gathered information about chemical-gene interactions, pathways, and diseases
+            prependTab( inputId = "tabset",
+                       session = session,
+                       tabPanel( value = "CTDbase",
+                                 title = paste0( "Additional Information"),
+                                 h3( paste0( "Information on gene interactions through exposure with ", chem$ctd_chemical)),
+                                 p( get_generalInformationDescription( chem$ctd_chemical)),
+                                 withSpinner( plotOutput( outputId = "plotGeneralInformationGene")),
+                                 br(),
+                                 br(),
+                                 h3( paste0( "Gene expression affected by ", chem$ctd_chemical)), 
+                                 p( get_chemicalGeneDescription( chem$ctd_chemical)), 
+                                 withSpinner( plotOutput( outputId = "plotChemicalGene", height = "600px")),
+                                 br(),
+                                 br(),
+                                 h3( paste0( "Diseases that are associated with ", chem$ctd_chemical)), 
+                                 p( get_diseasesDescription( chem$ctd_chemical)),
+                                 withSpinner( plotOutput( outputId = "plotDiseases", height = "700px")),
+                                 br(),
+                                 br(),
+                                 h3( paste0( "Pathway enrichment caused by ", chem$ctd_chemical)), 
+                                 p( get_pathwaysDescription( chem$ctd_chemical)),
+                                 withSpinner(plotOutput( outputId = "plotPathways", height = "600px"))
+                                 
+                       )
+                     
+            )
+          }else{
+            
+            ## in case there are no suitable plots,
+            ## the tab will still be displayed, but a message for the user will be given
+            ## furthermore, this will circumvent issues, when tabs are removed later on,
+            ## e.g., when an additional compound will be searched
+            prependTab( inputId = "tabset",
+                       session = session,
+                       tabPanel( value = "CTDbase",
+                                 title = paste0( "Additional Information"),
+                                 h3( "No CTD-based information could be retrieved...")
+                       ))
+          }
         }
         
-        if( "meta" %in% input$omicsLayer){
         
-          ## collect potential metabolome data sets
-          ## use ?? to search Metabolights and Metabolomics Workbench
-          incProgress( amount = progress_time, detail = "Collecting Metabolome Data Sets")
-          chem$metabolome <- get_metabolomeXchange_by_list( chem$exactCompoundList)
-          
-          hits <- nrow( chem$metabolome)
-          ## create a dynamic tab to display the previously gathered information about metabolomics
-          appendTab( inputId = "tabset",
-                     session = session,
-                     tabPanel( value = "Metabolome",
-                               title = paste0( "Metabolome (", hits, ")"),
-                               h3(textOutput( outputId = "headerMeta")),
-                               DT::dataTableOutput( outputId = "tableMeta"))
-          )
-        }
+        
+        ## add the compound information panel
+        prependTab( inputId = "tabset",
+                    session = session,
+                    select = TRUE,
+                    tabPanel( value = "Compound",
+                              title = "Compound Information",
+                              h3(textOutput( outputId = "headerCompound")),
+                              tableOutput( outputId = "tableCompound"),
+                              br(),
+                              h3( textOutput( outputId = "headerCompoundIDs")),
+                              DT::dataTableOutput( outputId = "tableCompoundIDs"))
+        ) 
+        
+        
 
       })
 
@@ -575,20 +623,26 @@ server <- function(input, output, session) {
     
   })
   
+  
+  ## Render the header of the compound information tab
+  ## if errors occurred, display an information 
   output$headerCompound <- renderPrint( {
     
     if( chem$searchCompound == FALSE) return()
 
     if( "error" %in% names(chem) & !is.null( chem$error)){
-      cat( "An ERROR occurred: \n", chem$error)
+      cat( "An ERROR occurred: \n", chem$error, "\n\nPlease reload this page and try again!\n")
     } else if( "exactCompound" %in% names(chem) & !is.null( chem$exactCompound)){
       cat( "Compound Information: ", chem$exactCompound)
     }else{
-      cat( "Something really strange happened here!")
+      cat( "Something unpredictable happend.\n\nPlease reload this page and try again!\n")
     }
 
   })
   
+  
+  ## Render the table that collects compound-related information
+  ## such as SMILES, InChI codes, etc...
   output$tableCompound <- renderTable({
     
     if( chem$searchCompound == FALSE ) return()
@@ -600,6 +654,8 @@ server <- function(input, output, session) {
       colnames = FALSE
   )
   
+  
+  ## Render the header of the ID conversion table
   output$headerCompoundIDs <- renderPrint( {
     
     if( chem$searchCompound == FALSE) return()
@@ -609,6 +665,8 @@ server <- function(input, output, session) {
     
   })
   
+  
+  ## Render the data table of the ID conversion
   output$tableCompoundIDs <- DT::renderDataTable({
     
    if( chem$searchCompound == FALSE ) return()
@@ -622,36 +680,8 @@ server <- function(input, output, session) {
   
   )
 
-  output$headerGeneralInformationGene <- renderPrint({
-    
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "Information on gene interactions through exposure with ", paste( chem$exactCompoundList, collapse = ", "))
-    }
-    
-  })
   
-  
-  output$descriptionGeneralInformationGene <- renderPrint({
-    
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "\n")
-      cat( "In the figure below, all mentioned 'InteractionActions' that are collected by the CTDbase with regard to ", chem$ctd_chemical,
-           "are clustered. 'InteractionActions' groups interactions into classes and can be combined such that multiple IAs can 
-            be used to describe chemical-gene relations. The different IAs contain one or more interaction terms, separated by | character,
-            from a dictionary of 79 entries. Each of these terms are mostly prefixed by an attribute such as 'increases', 'decreases',
-            'affects', yielding IAs in the form of 'increases^expression | affects^activity'. 
-            All IAs that are connected with chemical-gene interactions triggered by", chem$ctd_chemical," are displayed in the following plot,
-            where  the number of references of each IA is shown in a stacked bar plot.")
-      cat("\n")
-            cat("\n")
-                  cat("\n")
-                        cat("\n")
-    }
-    
-  })
-  
+  ## Render the plot displaying InteractionActions of the queried compound
   output$plotGeneralInformationGene <- renderPlot({
     
     if( chem$searchCompound == FALSE) return()    
@@ -662,27 +692,7 @@ server <- function(input, output, session) {
   })
   
   
-    
-  output$headerPlotChemicalGene <- renderPrint({
-
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "Gene expression affected by ", paste( chem$exactCompoundList, collapse = ", "))
-    }
-    
-  })
-  
-  output$descriptionChemicalGene <- renderPrint({
-    
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "With a focus on the effects triggered by the exposure, the number of references that mention either a deacrease or increase 
-           in expression changes where plotted for the top40 genes (highest number of references).
-           Publications that merely mention an 'affect' rather than specifying the direction are addtionally visualized at the right side of the figure.")
-    }
-    
-  })
-  
+  ## Render the bar plot displaying the affects of the queried compound on gene expression
   output$plotChemicalGene <- renderPlot({
     
     if( chem$searchCompound == FALSE) return()    
@@ -693,15 +703,7 @@ server <- function(input, output, session) {
   })
   
   
-  output$headerPlotDiseases <- renderPrint({
-    
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "Diseases that are associated with ", paste( chem$exactCompoundList, collapse = ", "))
-    }
-    
-  })
-  
+  ## Render the bar plot that links the queried compound to certain diseases
   output$plotDiseases <- renderPlot({
     
     if( chem$searchCompound == FALSE) return()    
@@ -709,34 +711,20 @@ server <- function(input, output, session) {
       plot_diseases( chem$ctd_chem, chem$ctd_chemical, chem$ctd_cas)
     }
     
-  }# , height = function(){
-  #  session$clientData$output_plotDiseases_width
-  #}
-  )
-
-  
-  output$headerPlotPathways <- renderPrint({
-    
-    if( chem$searchCompound == FALSE) return()
-    if( chem$plot){
-      cat( "KEGG Pathway enrichment caused by ", paste( chem$exactCompoundList, collapse = ", "))
-    }
-    
   })
   
+  
+  ## Render the bar plot that displays the results of a KEGG and REACTOME pathway enrichment
   output$plotPathways <- renderPlot({
     
     if( chem$searchCompound == FALSE) return()    
     if( chem$plot){
       plot_pathways( chem$ctd_chem, chem$ctd_chemical, chem$ctd_cas)
     }
-    
-  }# , height = function(){
-  #  session$clientData$output_plotPathways_width
-  #}
-  )
+  })
   
   
+  ## Render the header of the transcriptome NCBI GEO results
   output$headerTrans <- renderPrint( {
     
     if( chem$searchCompound == FALSE ) return()
@@ -744,7 +732,9 @@ server <- function(input, output, session) {
     cat( "NCBI Geo data sets with ", paste( chem$exactCompoundList, collapse = ", "))
     
   })
-  
+
+    
+  ## Render the transcriptome results for NCBI GEO 
   output$tableTrans <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
@@ -754,6 +744,7 @@ server <- function(input, output, session) {
   )
 
   
+  ## Render the header of the transcriptome ArrayExpress results
   output$headerTransAE <- renderPrint( {
     
     if( chem$searchCompound == FALSE ) return()
@@ -763,6 +754,7 @@ server <- function(input, output, session) {
   })
   
   
+  ## Render the transcriptome results for ArrayExpress
   output$tableTransAE <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
@@ -772,6 +764,7 @@ server <- function(input, output, session) {
   )
   
   
+  ## Render the header for the proteome results 
   output$headerProt <- renderPrint( {
     
     if( chem$searchCompound == FALSE ) return()
@@ -780,6 +773,8 @@ server <- function(input, output, session) {
     
   })
   
+  
+  ## Render the results table for PRIDE proteome queries
   output$tableProt <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
@@ -788,6 +783,8 @@ server <- function(input, output, session) {
     escape = FALSE
   )  
   
+  
+  ## Render the header for the metabolome results tab
   output$headerMeta <- renderPrint( {
     
     if( chem$searchCompound == FALSE ) return()
@@ -796,6 +793,8 @@ server <- function(input, output, session) {
     
   })
   
+  
+  ## Render the results table for metabolomeXchange queries
   output$tableMeta <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
@@ -807,6 +806,10 @@ server <- function(input, output, session) {
 }
 
 
+
+#' This function removes specified tabs from the current session
+#' @param session The current session
+#' @param displayedTabs A list of tabs that should be removed
 removeTabs <- function( session, displayedTabs){
   
   ## remove compound information tab

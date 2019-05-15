@@ -8,8 +8,9 @@ if( length( args) != 1){
   
 }
 
-## Download the CTD_chemicals file from CTDbase.org
-## parse the file and create an RData file containing a data.frame with an appropriate header
+#' Download the CTD_chemicals file from CTDbase.org
+#' parse the file and create an RData file containing a data.frame with an appropriate header
+#' @param outdir Directory to store the downloaded and preprocessed files
 prepare_CTD_database_file <- function( outdir){
   
   filename <- paste0( outdir, "CTD_chemicals.tsv.gz")

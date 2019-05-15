@@ -31,22 +31,31 @@ plot_chemical_gene_interaction <- function( ctd_chem, compound){
   
   ## combine both tibbles to a single data.frame
   ## change the reference counts to log scale and transform the axis accordingly
+  max <- max( c( inc2$increase.Ref, dec2$decrease.Ref))
+  logAxis <- get_log_labels( max, mirror = TRUE)
+  
   plotme <- data.frame( Gene.Symbol = genes, increase.Ref = rep( 0, length( genes)), decrease.Ref = rep( 0, length( genes)), abs = rep(0, length( genes)))
-  plotme$increase.Ref[ match( inc2$Gene.Symbol, plotme$Gene.Symbol)] <- log( inc2$increase.Ref, base = 2)
-  plotme$decrease.Ref[ match( dec2$Gene.Symbol, plotme$Gene.Symbol)] <- log( dec2$decrease.Ref, base = 2)
+  
+  if( max > 10){
+    inc2$increase.Ref[ which( inc2$increase.Ref == 1)] <- sqrt( 2)
+    dec2$decrease.Ref[ which( dec2$decrease.Ref == 1)] <- sqrt( 2)
+    plotme$increase.Ref[ match( inc2$Gene.Symbol, plotme$Gene.Symbol)] <- log( inc2$increase.Ref, base = 2)
+    plotme$decrease.Ref[ match( dec2$Gene.Symbol, plotme$Gene.Symbol)] <- log( dec2$decrease.Ref, base = 2)
+  } else{
+    plotme$increase.Ref[ match( inc2$Gene.Symbol, plotme$Gene.Symbol)] <- inc2$increase.Ref
+    plotme$decrease.Ref[ match( dec2$Gene.Symbol, plotme$Gene.Symbol)] <- dec2$decrease.Ref
+  }
   plotme$abs <- pmax( plotme$increase.Ref, plotme$decrease.Ref)
   plotme <- plotme %>% dplyr::arrange( desc(abs)) %>% slice(1:40)
   plotme$decrease.Ref <- -1 * plotme$decrease.Ref
   plotme.df <- melt( plotme[, c(1,2,3)], value.name = "Reference.Count", variable.name = "Direction")
   plotme.df$Direction <- ifelse( plotme.df$Direction == "increase.Ref", "Increased", "Decreased")
   
-  max <- max( c( inc2$increase.Ref, dec2$decrease.Ref))
-  logAxis <- get_log_labels( max, mirror = TRUE)
   
   plt <- ggplot( data = plotme.df, aes( x = Gene.Symbol, y = Reference.Count, fill = Direction)) + geom_bar(stat="identity") + coord_flip()
   plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( -1*logAxis$limit, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
   plt <- plt + scale_fill_manual( values = c("skyblue", "salmon", "#999999"), name = "Attribute", labels = c("Increased", "Decreased", "Affects"), drop = FALSE, limits = c( "Increased", "Decreased", "Affects"))
-  plt <- plt + xlab( "Gene Symbol") + ylab( "Reference Counts")
+  plt <- plt + xlab( "Gene Symbol") + ylab( "Reference Counts (Decreased/Increased)")
   plt <- plt + ggtitle( paste0("Changes in gene expression triggered by ", compound))
 
   
@@ -77,7 +86,7 @@ plot_chemical_gene_interaction <- function( ctd_chem, compound){
   aff_plt <- aff_plt + geom_bar( stat = "identity") + coord_flip()
   aff_plt <- aff_plt + scale_y_continuous( expand = c(0,0), limits = c( 0, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
   aff_plt <- aff_plt + scale_fill_manual( values = c("skyblue", "salmon", "#999999"), name = "Attribute", labels = c("Increased", "Decreased", "Affects"), drop = FALSE, limits = c("Increased", "Decreased", "Affects"))
-  aff_plt <- aff_plt + xlab( "") + ylab( "Reference Counts")
+  aff_plt <- aff_plt + xlab( "") + ylab( "Reference Counts (Affects)")
   aff_plt <- aff_plt + ggtitle( "")
   
   final_plt <- ggarrange( plt, aff_plt, common.legend = TRUE, widths = c(5,2), legend = "bottom")
@@ -97,7 +106,11 @@ plot_chemical_gene_interaction <- function( ctd_chem, compound){
 plot_interaction_actions <- function( ctd_chem, compound, cas){
   
   ctd_genes_tab <- get_table( ctd_chem, index_name = "gene interactions")
-  ctd_genes_tab <- as.data.frame( ctd_genes_tab[ which( ctd_genes_tab$CAS.RN == cas), c(1,2,3,4,5,7)])
+  if( !is.null(cas)){
+    ctd_genes_tab <- as.data.frame( ctd_genes_tab[ which( ctd_genes_tab$CAS.RN == cas), c(1,2,3,4,5,7)])
+  }else{
+    ctd_genes_tab <- as.data.frame( ctd_genes_tab[ , c(1,2,3,4,5,7)])
+  }
 
   ## How many different interactions are there
   ia <- ctd_genes_tab$Interaction.Actions
@@ -158,7 +171,7 @@ plot_interaction_actions <- function( ctd_chem, compound, cas){
 
 
 #' This function plots a summary of diseases that are known to be
-#' linked with a certain chemical accroding to CTDbase.org
+#' linked with a certain chemical accroding to CTDbase.org.
 #' @param ctd_chem_object The CTD object created with ctd_chem_query().
 #' @param compound The chemical that's being analyzed.
 #' @param cas The CAS-RN of the chemical compound.
@@ -166,7 +179,9 @@ plot_interaction_actions <- function( ctd_chem, compound, cas){
 plot_diseases <- function( ctd_chem, compound, cas){
 
   disease <- as.data.frame( get_table( ctd_chem, index_name = "diseases"))
-  disease <- disease[ which( disease$CAS.RN == cas), ]
+  if( !is.null( cas)){
+    disease <- disease[ which( disease$CAS.RN == cas), ]
+  }
   
   ## use the top40 diseases for plotting, based on reference count and inference score
   rfcount <- disease[, c(5,8,9)] %>% arrange( desc( Reference.Count)) %>% slice( 1:40) %>% select( Disease.ID)
@@ -175,11 +190,22 @@ plot_diseases <- function( ctd_chem, compound, cas){
   df <- disease[ match( unique( c( rfcount$Disease.ID, infscore$Disease.ID)), disease$Disease.ID), c(2,3,4,5,6,8,9)] %>% arrange( desc( Reference.Count))
   df$status <- as.factor( ifelse( df$Direct.Evidence == "", "Inferred", "Curated"))
   
+  ## change all Reference Counts of 1 to sqrt( 2)
+  ## to avoid 0 in the log-transformed scale
+  df$Reference.Count[ which( df$Reference.Count == 1)] <- sqrt(2)
+  
   max <- max( df$Reference.Count)
 
   logAxis <- get_log_labels( max)
 
-  plt <- ggplot( data = df, aes( y = log(Reference.Count, base = 2), x = reorder( Disease.Name, Reference.Count), fill = Inference.Score)) + geom_bar( stat="identity") + coord_flip() + facet_grid( status ~ ., scales = "free_y", space = "free_y")
+  plt <- ggplot( data = df, aes( y = log(Reference.Count, base = 2), x = reorder( Disease.Name, Reference.Count), fill = Inference.Score)) + geom_bar( stat="identity") + coord_flip()
+
+  ## check if the status has empty entries, if that's not the case
+  ## apply a facet grid to devide diseses into curated and inferred
+  if( summary( df$status)[1] != 0 && summary( df$status)[2] != 0){
+    plt <- plt + facet_grid( status ~ ., scales = "free_y", space = "free_y")
+  }
+  
   plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( 0, logAxis$limit), breaks=logAxis$breaks, labels=logAxis$labels)
   plt <- plt + scale_fill_distiller( palette = "YlOrRd", name = "Inference Score")
   plt <- plt + xlab( "Disease Name") + ylab( "Reference Counts")
@@ -191,7 +217,7 @@ plot_diseases <- function( ctd_chem, compound, cas){
 
 
 #' This function plots a summary of enriched pathways that are known to be
-#' linked with a certain chemical accroding to CTDbase.org
+#' linked with a certain chemical accroding to CTDbase.org.
 #' @param ctd_chem_object The CTD object created with ctd_chem_query().
 #' @param compound The chemical that's being analyzed.
 #' @param cas The CAS-RN of the chemical compound.
@@ -216,7 +242,16 @@ plot_pathways <- function( ctd_chem, compound, cas){
 }
 
 
+#' Design the axis labels for the plots
+#' depending on the actual plot, axis label can be mirrored,
+#' axis limit vary between 10, 100, 1000, and over 1000
+#' all axis with a maximal value above 10 are created in logscale.
+#' @param max Specify the maximal value that should be plottedt on this axis.
+#' @param mirror Optional, if TRUE, axis labels and breaks will be mirrored at 0.
+#' @return List containing the axis labels and breaks. 
 get_log_labels <- function( max, mirror = FALSE){
+  
+  root <- sqrt(2)
   
   if( mirror == TRUE ){
     if( max > 1000 ){
@@ -234,34 +269,42 @@ get_log_labels <- function( max, mirror = FALSE){
       labels <- c( "1000", "100", "10", "0", "10", "100", "1000") 
       limit <- 10
       
-    } else{
+    } else if( max > 10){
       
       logbreak <- log( c(1, 10, 100), base =2)
       breaks <- c( -1 * rev( logbreak), logbreak[2:3])
       labels <- c( "100", "10", "0", "10", "100") 
       limit <- 7
       
+    }else{
+      
+      labels <- c( seq( 10, 0), seq( 1, 10))
+      breaks <- c( seq( -10, 10))
+      limit <- 10
+      
     }
+    
+    
   } else {
     
     
     if( max > 1000 ){
       
-      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000), base =2)
-      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000", "2000", "4000", "6000", "8000", "10000")
+      breaks <- log( c(1, root, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000, 2000, 4000, 6000, 8000, 10000), base =2)
+      labels <- c( "0", "1", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000", "2000", "4000", "6000", "8000", "10000")
       limit <- 14
       
       
     } else if( max > 100){
       
-      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000), base =2)
-      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000") 
+      breaks <- log( c(1, root, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100, 200, 400, 600, 800, 1000), base =2)
+      labels <- c( "0", "1", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100", "200", "400", "600", "800", "1000") 
       limit <- 10
       
     } else{
       
-      breaks <- log( c(1, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100), base =2)
-      labels <- c( "0", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100") 
+      breaks <- log( c(1, root, 2, 4, 6, 8, 10, 20, 40, 60, 80, 100), base =2)
+      labels <- c( "0", "1", "2", "4", "6", "8", "10", "20", "40", "60", "80", "100") 
       limit <- 7
       
     }

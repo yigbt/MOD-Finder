@@ -1,38 +1,12 @@
 
-query_ctd_by_id <- function( input_id){
-  
-  ## check if the RData file is present
-  ## if not download and preprocess the file
-  if( !file.exists( "data/CTD_chemicals.RData")){
-    prepare_CTD_database_file()
-  }
-  
-  ## load the CTD file
-  load( file="data/CTD_chemicals.RData")
-  
-  ## search for the compound ID in the 2nd column
-  chem <- ctd[ which( ctd$Chemical.ID == paste0( "MESH:", input_id)), ]
-  
-  
-  if( nrow( chem) > 0){
-    
-    ## eliminate empty ID fields  
-    if( chem$DrugBankIDs == "") chem$DrugBankIDs <-NULL
-    if( chem$CasRN == "") chem$CasRN <- NULL
-    
-    return( chem)
-    
-  }
-  
-  return( NULL)
-}
-
-
-get_synonyms_by_cid <- function( input_cid){
+#' The function collects alle Pubchem-annotated synonyms for a given CID by means of a RESTful HTTP request.
+#' @param cid The Pubchem CID of the compound.
+#' @return A list containing the CIDs and the synonyms.
+get_synonyms_by_cid <- function( cid){
   
   ## create a http request which is used to retrieve all synonyms of a given compound
   ## and the CID
-  request <- paste0( pubchem_compound, input_cid, "/synonyms/JSON")
+  request <- paste0( pubchem_compound, cid, "/synonyms/JSON")
   
   content <- httr::content( GET( request))
   cid <- content$InformationList$Information[[1]]$CID
@@ -44,9 +18,14 @@ get_synonyms_by_cid <- function( input_cid){
 }
 
 
-get_description_by_cid <- function( input_cid){
+#' The function collects all IDs that are published at the Pubchem website.
+#' By means of a RESTful HTTP request through the CID, alles descriptions, that are linked at the Pubchem are evaluated.
+#' Based on these links, the IDs that are used at these sources can be retrieved.
+#' @param cid Pubchem ID of the compound of interest.
+#' @return A list containing the IDs, ID source, and a functional link to the compound page at this source.
+get_description_by_cid <- function( cid){
   
-  request <- paste0( pubchem_compound, input_cid, "/description/JSON")
+  request <- paste0( pubchem_compound, cid, "/description/JSON")
   
   content <- httr::content( GET( request))
   
@@ -100,6 +79,10 @@ get_description_by_cid <- function( input_cid){
 }
 
 
+#' The function returns all pubchem entries that are found with a given compound name.
+#' By means of a RESTful HTTP request, all entries that are found with a string search are returned.
+#' @param name Compound to be used for searching omics data sets.
+#' @return A data.frame collecting CIDs and compound names.
 get_cids_by_name <- function( name){
   
   ## create a http request which is used to retrieve all synonyms of a given compound
@@ -137,6 +120,14 @@ get_cids_by_name <- function( name){
 }
 
 
+#' This function collects important compound-related information from pubchem based on the compound CID.
+#' By means of a RESTful HTTP request retrieved information contain:
+#' Molecular Formular, SMILE, InChI, and the Definition (including the source)
+#' @param cid The Pubchem compound ID (CID)
+#' @return Dataframe with two columns (property and value)
+#' @examples
+#' get_compound_information( cid = 702)
+#' get_compound_information( 2244)
 get_compound_information <- function( cid){
   
   
@@ -185,23 +176,6 @@ get_compound_information <- function( cid){
 }
 
 
-## Download the CTD_chemicals file from CTDbase.org
-## parse the file and create an RData file containing a data.frame with an appropriate header
-prepare_CTD_database_file <- function(){
-  
-  download_ctd_chem()
-  if( !file.exists( "data/CTD_chemicals.tsv.gz")){
-    
-    cat( "ERROR: Could not download CTD_Chemicals file!\n")
-    return( NULL)  
-  }
-  
-  ctd <- read.csv( "data/CTD_chemicals.tsv.gz", header = FALSE, sep = "\t", comment.char = "#", stringsAsFactors = FALSE )
-  colnames( ctd) <- c( "Chemical.Name", "Chemical.ID", "CasRN", "Definition", "ParentIDs", "TreeNumbers", "ParentTreeNumbers", "Synonyms", "DrugBankIDs")
-  
-  save( ctd, file="data/CTD_chemicals.RData")
-  
-}
 
 #' Search with a given compound name or compound ID in the Comptox database for overlapping hits to refine the search. 
 #' @param compound The search string
@@ -238,8 +212,8 @@ get_comptox_by_input <- function( compound){
   
     ## assume the entered compound is a name
     ## -> pattern matching with columns NAME ans SYNONYM
-    sids_comptox <- comptox$CTXSID[grep( compound, comptox$NAME)]
-    sids_synonyms <- unique( synonyms$DTXSID[ grep( compound, synonyms$SYNONYM)])
+    sids_comptox <- comptox$CTXSID[grep( compound, comptox$NAME, ignore.case = TRUE)]
+    sids_synonyms <- unique( synonyms$DTXSID[ grep( compound, synonyms$SYNONYM, ignore.case = TRUE)])
     sids <- unique( c( sids_comptox, sids_synonyms)) 
 
     m <- match( sids, comptox$DTXSID)
@@ -256,6 +230,7 @@ get_comptox_by_input <- function( compound){
   return( arrange( df, cid))
   
 }
+
 
 
 #' Retrieve all IDs from Comptox dashboard that are mapped to a given pubchem ID.
