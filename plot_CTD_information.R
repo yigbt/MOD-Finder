@@ -232,7 +232,8 @@ plot_pathways <- function( ctd_chem, compound, cas){
   df$Label <- paste0( df$Pathway, " (FDR: ", df$Corrected.P.value, ")")
 
   plt <- ggplot( data = df, aes( y = Frequence, x= reorder( Label, -Corrected.P.value), fill = Genes)) + geom_bar( stat = "identity") + coord_flip()
-  plt <- plt + ylim( c(0,1)) + xlab( "KEGG Pathway") + ylab( "Ratio( enriched genes / annotated genes)")
+  plt <- plt + xlab( "KEGG Pathway") + ylab( "Ratio( enriched genes / annotated genes)")
+  plt <- plt + scale_y_continuous( expand = c(0,0), limits = c( 0, 1))
   plt <- plt + scale_fill_distiller( palette = "YlOrRd", name = "Annotated Genes")
   plt <- plt + ggtitle( "Pathway enrichment analysis based on KEGG pathways")
   

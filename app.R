@@ -254,6 +254,7 @@ server <- function(input, output, session) {
         cmp <- paste( unlist( strsplit( x = tolower( input$compoundList), split = " - "))[-1], collapse = "-")
       
         # in case refined compound is the same as the initial input
+
         if( cmp == inputCompound ){
           updateRadioButtons( inputId = "splitCompound", session = session,
                               label = "Name splitting - Search with:",
@@ -378,15 +379,50 @@ server <- function(input, output, session) {
           
         ## Retrieve a list of synonyms through a RESTful HTTP request
         ## by means of the CID
-        pubchem <- get_synonyms_by_cid( chem$cid)
+        pubchem <- tryCatch( 
+          
+          get_synonyms_by_cid( chem$cid),
+            
+          warning = function(cond){
+            message( "Querying Pubchem resulted in a warning.")
+            return( list())
+          },
+            error = function(cond){
+            message( "Querying CTDbase resulted in an error.")
+            return( list())
+          })
+
+        
         chem$synonyms <- unique( tolower( pubchem$synonyms))
 
         
         ## second: general information, such as SMILE and descriptions
-        chem$results <- get_compound_information( chem$cid)
+        chem$results <- tryCatch(
+          
+          get_compound_information( chem$cid),
 
+          warning = function(cond){
+            message( "Querying Pubchem resulted in a warning.")
+            return( data.frame())
+          },
+          error = function(cond){
+            message( "Querying CTDbase resulted in an error.")
+            return( data.frame())
+        })
+          
         ## get pubchem ID mappings
-        pubchem <- get_description_by_cid( chem$cid)
+        pubchem <- tryCatch(
+          
+          get_description_by_cid( chem$cid),
+          
+          warning = function(cond){
+            message( "Querying Pubchem resulted in a warning.")
+            return( list())
+          },
+          error = function(cond){
+            message( "Querying CTDbase resulted in an error.")
+            return( list())
+        })
         
 
         ## create a data frame which stores all IDs collected during the runtime
@@ -538,7 +574,7 @@ server <- function(input, output, session) {
           ## run the query_ctd_chem command, to gather all necessary information
           ## that is needed for plotting
           if( length(chem$ctd_chemical) != 0 ){            
-  
+
             chem$ctd_chem <- tryCatch( 
               query_ctd_chem( chem$ctd_chemical, filename = "data/CTD_chemicals.tsv.gz"),
               warning = function(cond){
