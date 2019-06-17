@@ -474,15 +474,29 @@ server <- function(input, output, session) {
           incProgress( amount = progress_time, detail = "Collecting Metabolome Data Sets")
           chem$metabolome <- get_metabolomeXchange_by_list( chem$exactCompoundList)
           
-          hits <- nrow( chem$metabolome)
-          ## create a dynamic tab to display the previously gathered information about metabolomics
-          prependTab( inputId = "tabset",
-                     session = session,
-                     tabPanel( value = "Metabolome",
-                               title = paste0( "Metabolome (", hits, ")"),
-                               h3(textOutput( outputId = "headerMeta")),
-                               DT::dataTableOutput( outputId = "tableMeta"))
-          )
+          if( typeof( chem$metabolome) == "character"){
+            
+            prependTab( inputId = "tabset",
+                        session = session,
+                        tabPanel( value = "Metabolome",
+                                  title = paste0( "Metabolome (ERROR)"),
+                                  h3(textOutput( outputId = "headerMeta")),
+                                  br(),
+                                  h4(textOutput( outputId = "headerMetaError")))
+            )
+            
+          }else{
+          
+            hits <- nrow( chem$metabolome)
+            ## create a dynamic tab to display the previously gathered information about metabolomics
+            prependTab( inputId = "tabset",
+                       session = session,
+                       tabPanel( value = "Metabolome",
+                                 title = paste0( "Metabolome (", hits, ")"),
+                                 h3(textOutput( outputId = "headerMeta")),
+                                 DT::dataTableOutput( outputId = "tableMeta"))
+            )
+          }
         }
         
 
@@ -829,6 +843,14 @@ server <- function(input, output, session) {
     
   })
   
+  ## Render the header for the metabolome results tab
+  output$headerMetaError <- renderPrint( {
+    
+    if( chem$searchCompound == FALSE ) return()
+    
+    cat( chem$metabolome, "\n")
+    
+  })
   
   ## Render the results table for metabolomeXchange queries
   output$tableMeta <- DT::renderDataTable({

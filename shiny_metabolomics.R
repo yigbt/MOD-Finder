@@ -1,21 +1,48 @@
-
-## query metabolomXchange by a list of compounds
+#' This function takes a list of chemicals of interest to query the MetabolomeXchange
+#' @param compound_list The list with names of chemicals of interest.
+#' @return Either a string containing an error-message or a dataframe containing data sets.
 get_metabolomeXchange_by_list <- function( compound_list){
 
-  res <- do.call( rbind, lapply( compound_list, function(x) get_metabolomeXchange_by_name( x)))
+  res <- tryCatch(
+    do.call( rbind, lapply( compound_list, function(x) get_metabolomeXchange_by_name( x))),
+    
+    warning = function(cond){
+      message( "Querying MetabolomeXchange resulted in a warning.")
+      return( "ERROR - querying MetabolomeXchange resulted in an Internal Server Error")
+    },
+    error = function(cond){
+      message( "Querying MetabolomeXchange resulted in an error.")
+      return( "ERROR - querying MetabolomeXchange resulted in an Internal Server Error")
+    })
+  
   return( unique( res))
   
 }
 
 
-## query metabolomXchange by a single compound
+#' This function queries the MetabolomeXchange with a specific chemical of interest.
+#' Therefore, the RESTful API interface is utilized.
+#' The retrieved JSON object is parsed to return a well-formated dataframe containing all necessary information about the Metabolomics data set.
+#' @param compound The chemical of interest to query MetabolomXchange.
+#' @return A string in case of server errors, a dataframe of retrieved data sets otherwise.
 get_metabolomeXchange_by_name <- function( compound){
   
   
   ## how about compounds including a space ??
   compound <- gsub( " ", "%20", compound)
   request <- sprintf( "http://api.metabolomexchange.org/datasets/%s", compound)
-  content <- httr::content( GET( request))
+  cat( request,"\n")
+  getobj <- GET( request)
+  
+  if( !http_error( getobj)){
+    
+    return( "ERROR - MetabolomXchange query resulted in an Internal Server Error!")
+    
+  }
+  content <- httr::content( getobj)
+  
+  cat( "metabolome query finished: \n")
+  cat( length( content), "\n")
   
   if( length( content) == 0) return( data.frame())
   
