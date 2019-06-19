@@ -474,29 +474,26 @@ server <- function(input, output, session) {
           incProgress( amount = progress_time, detail = "Collecting Metabolome Data Sets")
           chem$metabolome <- get_metabolomeXchange_by_list( chem$exactCompoundList)
           
-          if( typeof( chem$metabolome) == "character"){
-            
-            prependTab( inputId = "tabset",
-                        session = session,
-                        tabPanel( value = "Metabolome",
-                                  title = paste0( "Metabolome (ERROR)"),
-                                  h3(textOutput( outputId = "headerMeta")),
-                                  br(),
-                                  h4(textOutput( outputId = "headerMetaError")))
-            )
-            
-          }else{
+          ## chem$metabolome is a list that contains [1]$msg a character vector of errors that occured
+          ## and a [2]$df containing the data set table
           
-            hits <- nrow( chem$metabolome)
-            ## create a dynamic tab to display the previously gathered information about metabolomics
-            prependTab( inputId = "tabset",
-                       session = session,
-                       tabPanel( value = "Metabolome",
-                                 title = paste0( "Metabolome (", hits, ")"),
-                                 h3(textOutput( outputId = "headerMeta")),
-                                 DT::dataTableOutput( outputId = "tableMeta"))
-            )
+          ## in case there was an error
+          amount <- as.character( nrow( chem$metabolome[2]$df))
+          if( length( chem$metabolome[1]$msg) > 0 && nrow( chem$metabolome[2]$df) == 0){
+            amount <- "ERROR"
           }
+
+          ## create a dynamic tab to display the previously gathered information about metabolomics
+          prependTab( inputId = "tabset",
+                      session = session,
+                      tabPanel( value = "Metabolome",
+                                title = paste0( "Metabolome (", amount, ")"),
+                                h3(textOutput( outputId = "headerMeta")),
+                                htmlOutput( outputId = "headerMetaError"),
+                                br(),
+                                DT::dataTableOutput( outputId = "tableMeta"))
+          )
+          
         }
         
 
@@ -506,13 +503,23 @@ server <- function(input, output, session) {
           ## use the rpx package to search amongst proteinXchange-uploaded data sets
           incProgress( amount = progress_time, detail = "Collecting Proteome Data Sets")
           chem$proteome <- get_proteome_by_list( chem$exactCompoundList)
-          
+
+          ## chem$proteome is a list that contains [1]$msg a character vector of errors that occured
+          ## and a [2]$df containing the data set table
+
+          amount <- as.character( nrow( chem$proteome[2]$df))
+          if( length( chem$proteome[1]$msg) > 0 && nrow( chem$proteome[2]$df) == 0){
+            amount <- "ERROR"
+          }
+                              
           ## create a dynamic tab to display the previously gathered information about proteomics
           prependTab( inputId = "tabset",
                      session = session,
                      tabPanel( value = "Proteome",
-                               title = paste0( "Proteome (", nrow( chem$proteome), ")"),
+                               title = paste0( "Proteome (", amount, ")"),
                                h3(textOutput( outputId = "headerProt")),
+                               htmlOutput( outputId = "headerProtError"),
+                               br(),
                                DT::dataTableOutput( outputId = "tableProt"))
           )
           
@@ -528,16 +535,29 @@ server <- function(input, output, session) {
           chem$transcriptome <- get_transcriptome_by_list( chem$exactCompoundList)
           chem$transcriptomeAE <- get_arrayExpress_by_list( chem$exactCompoundList)
           
+          
+          ## chem$transcriptome and chem$transcriptomeAE are lists that contains [1]$msg a character vector of errors that occured
+          ## and a [2]$df containing the data set table
+          
+          ## in case there was an error
+          amount <- nrow( chem$transcriptome[2]$df) + nrow( chem$transcriptomeAE[2]$df)
+          if( amount == 0){
+            if( nrow( chem$transcriptome[2]$df) + nrow( chem$transcriptomeAE[2]$df) == 0)
+              amount <- "ERROR"
+          }
+          amount <- as.character( amount)
+          
           ## create a dynamic tab to display the previously gathered information about transcriptomics
-          lines <- nrow( chem$transcriptome) + nrow( chem$transcriptomeAE)
           prependTab( inputId = "tabset",
                      session = session,
                      tabPanel( value = "Transcriptome",
-                               title = paste0( "Transcriptome (", lines, ")"),
+                               title = paste0( "Transcriptome (", amount, ")"),
                                h3( textOutput( outputId = "headerTrans")),
+                               htmlOutput( outputId = "headerTransError"),
                                DT::dataTableOutput( outputId = "tableTrans"),
                                br(),
                                h3( textOutput( outputId = "headerTransAE")),
+                               htmlOutput( outputId = "headerTransAEError"),
                                DT::dataTableOutput( outputId = "tableTransAE"))
           )
           
@@ -783,13 +803,27 @@ server <- function(input, output, session) {
     
   })
 
+  
+  ## Render the information panel of NCBI GEO errors that might have occurred
+  output$headerTransError <- renderPrint( {
+
+    if( chem$searchCompound == FALSE ) return()
+    if( length( chem$transcriptome[1]$msg) > 0 ){
+      cat( "Please note that error(s) occurred during data set collection:<br>")
+      cat( paste(chem$transcriptome[1]$msg, collapse = "<br>"), "<br>")
+    } else{
+      cat("<br>")
+    }
     
+  })
+    
+  
   ## Render the transcriptome results for NCBI GEO 
   output$tableTrans <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
     
-    chem$transcriptome },
+    chem$transcriptome[2]$df },
      escape = FALSE
   )
 
@@ -804,12 +838,26 @@ server <- function(input, output, session) {
   })
   
   
+  ## Render the information panel for ArrayExpress errors that might have occurred
+  output$headerTransAEError <- renderPrint( {
+    
+    if( chem$searchCompound == FALSE ) return()
+    if( length( chem$transcriptomeAE[1]$msg) > 0 ){
+      cat( "Please note that error(s) occurred during data set collection:<br>")
+      cat( paste(chem$transcriptomeAE[1]$msg, collapse = "<br>"), "<br>")
+    } else{
+      cat("<br>")
+    }
+    
+  })
+  
+  
   ## Render the transcriptome results for ArrayExpress
   output$tableTransAE <- DT::renderDataTable({
     
     if( chem$searchCompound == FALSE ) return()
     
-    chem$transcriptomeAE },
+    chem$transcriptomeAE[2]$df },
     escape = FALSE
   )
   
@@ -822,6 +870,20 @@ server <- function(input, output, session) {
     cat( "Proteomic data sets with ", paste( chem$exactCompoundList, collapse = ", "))
     
   })
+
+  
+  ## Render the information panel for proteome errors that might have occurred
+  output$headerProtError <- renderPrint( {
+    
+    if( chem$searchCompound == FALSE ) return()
+    if( length( chem$proteome[1]$msg) > 0 ){
+      cat( "Please note that error(s) occurred during data set collection:<br>")
+      cat( paste(chem$proteome[1]$msg, collapse = "<br>"), "<br>")
+    } else{
+      cat("<br>")
+    }
+    
+  })
   
   
   ## Render the results table for PRIDE proteome queries
@@ -829,7 +891,7 @@ server <- function(input, output, session) {
     
     if( chem$searchCompound == FALSE ) return()
     
-    chem$proteome },
+    chem$proteome[2]$df },
     escape = FALSE
   )  
   
@@ -843,12 +905,17 @@ server <- function(input, output, session) {
     
   })
   
-  ## Render the header for the metabolome results tab
+  
+  ## Render the information panel for metabolome errors that might have occrued
   output$headerMetaError <- renderPrint( {
     
     if( chem$searchCompound == FALSE ) return()
-    
-    cat( chem$metabolome, "\n")
+    if( length( chem$metabolome[1]$msg) > 0 ){
+      cat( "Please note that error(s) occurred during data set collection:<br>")
+      cat( paste(chem$metabolome[1]$msg, collapse = "<br>"), "<br>")
+    } else{
+      cat("<br>")
+    }
     
   })
   
@@ -857,7 +924,7 @@ server <- function(input, output, session) {
     
     if( chem$searchCompound == FALSE ) return()
     
-    chem$metabolome },
+    chem$metabolome[2]$df },
     escape = FALSE
   )
 

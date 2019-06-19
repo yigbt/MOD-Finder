@@ -1,21 +1,19 @@
 #' This function takes a list of chemicals of interest to query the MetabolomeXchange
 #' @param compound_list The list with names of chemicals of interest.
 #' @return Either a string containing an error-message or a dataframe containing data sets.
-get_metabolomeXchange_by_list <- function( compound_list){
+get_metabolomeXchange_by_list <- function( CoI_list){
 
-  res <- tryCatch(
-    do.call( rbind, lapply( compound_list, function(x) get_metabolomeXchange_by_name( x))),
+  nested_list <- lapply( CoI_list, function(x) get_metabolomeXchange_by_name( x)) 
     
-    warning = function(cond){
-      message( "Querying MetabolomeXchange resulted in a warning.")
-      return( "ERROR - querying MetabolomeXchange resulted in an Internal Server Error")
-    },
-    error = function(cond){
-      message( "Querying MetabolomeXchange resulted in an error.")
-      return( "ERROR - querying MetabolomeXchange resulted in an Internal Server Error")
-    })
-  
-  return( unique( res))
+  ## create a list of all errors or warnings that occured during the query
+  msgs <- unlist( lapply( nested_list, '[[', 1))
+  msg <- msgs[ which( msgs != "")]
+    
+  ## create a combined dataframe of all CoIs in the list
+  res <- do.call( rbind, lapply( nested_list, '[[', 2))
+
+  ## return the list
+  return( list( msg = msg, df = unique( res)))
   
 }
 
@@ -24,27 +22,52 @@ get_metabolomeXchange_by_list <- function( compound_list){
 #' Therefore, the RESTful API interface is utilized.
 #' The retrieved JSON object is parsed to return a well-formated dataframe containing all necessary information about the Metabolomics data set.
 #' @param compound The chemical of interest to query MetabolomXchange.
-#' @return A string in case of server errors, a dataframe of retrieved data sets otherwise.
-get_metabolomeXchange_by_name <- function( compound){
+#' @return A list containing an errorstring and the result dataframe.
+get_metabolomeXchange_by_name <- function( CoI){
   
   
   ## how about compounds including a space ??
-  compound <- gsub( " ", "%20", compound)
-  request <- sprintf( "http://api.metabolomexchange.org/datasets/%s", compound)
-  cat( request,"\n")
-  getobj <- GET( request)
+  compound <- gsub( " ", "%20", CoI)
+  request <- sprintf( "http://api.metabolomexchange.org/datasets/%s", CoI)
+  # cat( request,"\n")
   
-  if( !http_error( getobj)){
+  
+  ## retrieve the RESTful object from MetabolomeXchange
+  getobj <- tryCatch(
     
-    return( "ERROR - MetabolomXchange query resulted in an Internal Server Error!")
+    GET( request),
+    
+    warning = function(cond){
+      message( "Querying MetabolomeXchange resulted in a warning.")
+      return( list( msg = paste0( "WARNING - MetabolomeXchange RESTful request resulted in a warning. (Chemical: ", CoI, ")"),
+                    df = data.frame()))
+    },
+    error = function(cond){
+      message( "Querying MetabolomeXchange resulted in an error.")
+      return( list( msg = paste0( "ERROR - MetabolomeXchange RESTful request resulted in an ERROR. (Chemical: ", CoI,")"),
+                    df = data.frame()))
+    }
+  )
+  
+  ## check if there are any Server problems
+  if( http_error( getobj)){
+    
+    return( list( msg = paste0("ERROR - MetabolomXchange query resulted in an Internal Server Error. (CoI: ", CoI, ")"), 
+                  df = data.frame())
+            )
     
   }
+  
+  ## extract the data object, get the content
   content <- httr::content( getobj)
   
-  cat( "metabolome query finished: \n")
-  cat( length( content), "\n")
+  # cat( "metabolome query finished: \n")
+  # cat( length( content), "\n")
   
-  if( length( content) == 0) return( data.frame())
+  ## return an empty dataframe and error message in case no data set can be founnd with this CoI
+  if( length( content) == 0){
+    return( list( msg = "", df = data.frame()))
+  }
   
   url <- sapply( content, function(x) x$url)
   title <- sapply( content, function(x) x$title)
@@ -79,7 +102,8 @@ get_metabolomeXchange_by_name <- function( compound){
   ## which descriptions and title do actually contain the given compound?
   rows <- unique( c( grep( pattern = compound, desc), grep( pattern = compound, title)))
   
-  return( data.frame( "Title" = title, "Accession" = link, "PubmedID" = pmid, "Organism" = org, "Analysis" = analysis, "Source" = map_provider )[ rows, ])
+  ## return the list that contains an empty error message and the dataframe with information about data sets 
+  return( list( msg = "", df = data.frame( "Title" = title, "Accession" = link, "PubmedID" = pmid, "Organism" = org, "Analysis" = analysis, "Source" = map_provider )[ rows, ]))
   
 }
 
