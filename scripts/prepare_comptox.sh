@@ -106,7 +106,7 @@ grep -A 1 '<DSSTox_Compound_id>' $data"SDF_file.sdf" | grep DTXCID > $data"dtxci
 grep -A 1 '<DSSTox_Substance_id>' $data"SDF_file.sdf" | grep DTXSID > $data"dtxsid.txt"
 grep -A 1 '<Dashboard_URL>' $data"SDF_file.sdf" | grep http > $data"url.txt"
 grep -A 1 '<CASRN>' $data"SDF_file.sdf" | grep -v CASRN | grep -v "\-\-" > $data"cas.txt"
-grep -A 1 "<Preferred_name>" $data"SDF_file.sdf" | grep -v "<Preferred_name>" | grep -v "^\-\-" | sed 's/^\s$/NA/' | > $data"names.txt" 
+grep -A 1 "<Preferred_name>" $data"SDF_file.sdf" | grep -v "<Preferred_name>" | grep -v "^\-\-" | sed 's/^\s$/NA/' > $data"names.txt" 
 #echo -e "dsstox_structure_id\tdsstox_substance_id\turl\tcas-rn" > $data"SDF_file.tsv"
 #paste dtxcid.txt dtxsid.txt url.txt cas.txt | column -s $'\t' >> $data"SDF_file.tsv"
 #rm dtxsid.txt dtxcid.txt url.txt cas.txt $data"SDF_file.sdf"
