@@ -23,7 +23,7 @@ get_proteome_by_list <- function( CoI_list){
 #' @param compound The chemical of interest to query EBI PRIDE.
 #' @return A list containing an errorstring and the result dataframe.
 get_proteome_by_name <- function( CoI){
-  
+
   request <- sprintf( "https://www.ebi.ac.uk/pride/ws/archive/project/list?query=\"%s\"", CoI)
 
   ## retrieve the RESTful object from EBI PRIDE
@@ -56,7 +56,7 @@ get_proteome_by_name <- function( CoI){
   content <- httr::content( getobj)
   
   ## return an empty dataframe and error message in case no data set can be founnd with this CoI
-  if( length( content) == 0){
+  if( length( content[1]$list) == 0){
     return( list( msg = "", df = data.frame()))
   }
   
@@ -70,7 +70,7 @@ get_proteome_by_name <- function( CoI){
   
   ## generate the functional URLs
   ids <- sprintf( '<a href=\"https://www.ebi.ac.uk/pride/archive/projects/%s\" target=\"_blank\">%s</a>', ids, ids)
-  
+
   ## return the list that contains an empty error message and the dataframe with information about data sets 
   return( list( msg = "", df = data.frame( "Title" = titles, "IDs" = ids, "Submission Type" = subType, "Nr of Assays" = numAssay, "Organism" = species)))
   

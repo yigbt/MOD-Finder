@@ -475,7 +475,7 @@ server <- function(input, output, session) {
           
           ## chem$metabolome is a list that contains [1]$msg a character vector of errors that occured
           ## and a [2]$df containing the data set table
-          
+
           ## in case there was an error
           amount <- as.character( nrow( chem$metabolome[2]$df))
           if( length( chem$metabolome[1]$msg) > 0 && nrow( chem$metabolome[2]$df) == 0){
@@ -505,7 +505,7 @@ server <- function(input, output, session) {
 
           ## chem$proteome is a list that contains [1]$msg a character vector of errors that occured
           ## and a [2]$df containing the data set table
-
+          
           amount <- as.character( nrow( chem$proteome[2]$df))
           if( length( chem$proteome[1]$msg) > 0 && nrow( chem$proteome[2]$df) == 0){
             amount <- "ERROR"
