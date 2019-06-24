@@ -36,7 +36,7 @@ colnames( inchi) <- c( "DTXSID", "InChI_String", "InChI_Key")
 
 synonyms <- read.csv( file = paste0( args[1], "Synonyms.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
 # synonyms <- read.csv( file = paste0( path, "Synonyms.tsv"), sep = "\t", header = TRUE, stringsAsFactors = FALSE, quote = "")
-colnames( synonyms) <- c( "DTXCID", "DTXSID", "CAS", "NAME", "SYNONYM")
+colnames( synonyms) <- c( "DTXSID", "SYNONYM")
 
 
 ## remove all entries without a possible mapping 
@@ -53,7 +53,6 @@ comptox <- data.frame( CAS = sdf$CAS[ comptoxpub], CID = pubchem$CID, SID = pubc
 temp <- match( synonyms$DTXSID, sdf$DTXSID)
 rm_syn_list <- which( is.na( temp))
 synonyms <- synonyms[ -rm_syn_list, ]
-synonyms <- synonyms[, -c(1,3,4)]
 
 ## remove those sdf mappings with no connection to the df table
 temp <- match( sdf$DTXSID, comptox$DTXSID)

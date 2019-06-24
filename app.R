@@ -29,7 +29,6 @@ source( "shiny_compound.R", local = TRUE)
 source( "shiny_output_texts.R", local = TRUE)
 source( "plot_CTD_information.R", local = TRUE)
 
-
 ######
 # CONSTANTS
 pubchem_compound <- "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/"

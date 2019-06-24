@@ -14,7 +14,8 @@ log="/var/log/shiny-server.log"
 ## STEP 0
 ## download the comptox download page to extract the current downloadable files
 #######
-echo `date`"Download comptox information file" >> $log
+echo `date`" Download comptox information file" >> $log
+echo `data`" Download comptox information file" 1>&2
 wget -O $data"comptox_download.html" https://comptox.epa.gov/dashboard/downloads
 
 
@@ -25,7 +26,7 @@ wget -O $data"comptox_download.html" https://comptox.epa.gov/dashboard/downloads
 #######
 
 ## get the current ftp link of the cas number file
-echo `date`"Process comptox-pubchem identifier" >> $log
+echo `date`" Process comptox-pubchem identifier" >> $log
 url=`grep "DSSTox Identifier to PubChem Identifier Mapping File" $data"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*txt\).*$/\1/'`
 wget -O $data$pubchem".txt" $url
 mv $data$pubchem".txt" $data$pubchem".tsv"
@@ -56,7 +57,7 @@ mv $data$pubchem".txt" $data$pubchem".tsv"
 
 
 ## get the current ftp link of the synonyms file
-echo `date`"Process comptox synonyms file" >> $log
+echo `date`" Process comptox synonyms file" >> $log
 url=`grep "DSSTox Synonyms File" $data"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 wget $url
@@ -67,7 +68,7 @@ mv ${file::-4}".sdf" $data"Synonyms.sdf"
 
 ## get the current link of the SDF file
 ## get the filename from the link
-echo `date`"Process comptox SDF file" >> $log
+echo `date`" Process comptox SDF file" >> $log
 url=`grep "DSSTox SDF File" $data"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 wget $url
@@ -79,7 +80,7 @@ rm $file ${file::-4}_*
 ## extract the current mapping file from the download page (ftp link)
 ## get the filename from the link
 ## produce the unzipped name of the file, which contains the date of its generation
-echo `date`"Process comptox mapping file" >> $log
+echo `date`" Process comptox mapping file" >> $log
 url=`grep "DSSTox Mapping File" $data"comptox_download.html" | sed 's/^.*\(ftp:\/\/.*zip\).*$/\1/'`
 file=`echo $url | sed 's/.*\///'`
 unzipped=`echo ${file::-4} | sed 's/\(.*_\)\(.*\)$/dsstox_\2.tsv/'`
@@ -101,7 +102,7 @@ rm $file $unzipped
 ## STEP 2
 ## Extract the needed information from SDF files
 #######
-echo `date`"Process SDF file to get SID, CID, URL, and CAS mapping" >> $log
+echo `date`" Process SDF file to get SID, CID, URL, and CAS mapping" >> $log
 grep -A 1 '<DSSTox_Compound_id>' $data"SDF_file.sdf" | grep DTXCID > $data"dtxcid.txt"
 grep -A 1 '<DSSTox_Substance_id>' $data"SDF_file.sdf" | grep DTXSID > $data"dtxsid.txt"
 grep -A 1 '<Dashboard_URL>' $data"SDF_file.sdf" | grep http > $data"url.txt"
@@ -116,7 +117,7 @@ grep -A 1 "<Preferred_name>" $data"SDF_file.sdf" | grep -v "<Preferred_name>" | 
 ## STEP 3
 ## Extract the synonyms from synonyms.sdf file
 #######
-echo `date`"Process downloaded synonyms file to get tsv format" >> $log
+echo `date`" Process downloaded synonyms file to get tsv format" >> $log
 python $scripts"sdf2matrix.py" -i $data"Synonyms.sdf" -o $data"Synonyms.tsv"
 
 ## head $data"Synonyms.tsv"
@@ -137,7 +138,7 @@ python $scripts"sdf2matrix.py" -i $data"Synonyms.sdf" -o $data"Synonyms.tsv"
 ## STEP 4
 ## Combine the mappings and save the data tables in an R readable-format
 #######
-echo `date`"Process the gathered comptox information into RData file" >> $log
+echo `date`" Process the gathered comptox information into RData file" >> $log
 Rscript $scripts"prepare_comptox.R" $data
 
 
