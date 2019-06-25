@@ -5,7 +5,11 @@ app to efficiently search for compound-related data sets on the
 transcriptomic, proteomic, and metabolomic layer.
 
 The webapp is available at [UFZ](https://webapp.ufz.de/mod_finder/),
-but the code can be run as a local stand-alone application.
+but the code can be run as a local stand-alone application. To do so,
+just clone this repository and follow the instructions described under
+'Prerequisites'. 
+
+
 
 
 ## Prerequisites
@@ -27,7 +31,7 @@ encourage all users to run the app in the provided conda environment.
 The environment can be created and activate by
 
 ```bash
-conda env create -f mod_finder.yml
+conda env create -f mod_finder_conda.yml
 source activate mod_finder
 ```
 
@@ -46,7 +50,7 @@ more than ??? thousand chemicals, including for example _Pubchem IDs_,
 _CAS RN_, and _Comptox IDs_. `CTD_chemicals` is the preprocessed
 source for retrieving chemical-specific information about effects on
 gene expression, pathway perturbations, and associations to diseases.
-`Geometadb.sqlite` contains the current version of the NCBI Geo
+`GEOmetadb.sqlite` contains the current version of the NCBI Geo
 database in an SQL format. 
 
 To create these database files in advance type the following commands:
@@ -61,4 +65,4 @@ bash scripts/create_local_databases.sh data/
 ## How to Cite
 
 When you find **MOD-Finder** useful, please make sure to cite us accordingly:
-Canzler _et al._ 2019
+_still to come_
